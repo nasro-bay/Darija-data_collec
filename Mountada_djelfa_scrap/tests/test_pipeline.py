@@ -1,0 +1,121 @@
+"""Unit tests for pipeline.py: dedup + schema-building + per-subforum
+breakdown, against hand-written fake raw post files (offline, no live
+requests).
+"""
+import json
+import sys
+import tempfile
+import unittest
+from datetime import date
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from darija_forum.pipeline import run_pipeline  # noqa: E402
+from darija_forum.state import State  # noqa: E402
+
+
+def _write_raw_file(path: Path, records: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        for r in records:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+
+def _post(post_id, text, subforum_id, thread_id="t1", thread_title="Thread"):
+    return {
+        "post_id": post_id,
+        "text": text,
+        "thread_id": thread_id,
+        "thread_title": thread_title,
+        "thread_url": f"https://www.djelfa.info/vb/showthread.php?t={thread_id}",
+        "subforum_id": subforum_id,
+        "author": "someone",
+        "timestamp": "2020-01-01, 00:00",
+        "post_url": f"https://www.djelfa.info/vb/showthread.php?p={post_id}#post{post_id}",
+        "scrape_date": date.today().isoformat(),
+    }
+
+
+class PipelineTests(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmpdir.name)
+        self.raw_dir = self.root / "raw"
+        self.processed_dir = self.root / "processed"
+        self.state = State(self.root / "state.json")
+        self.lsh_path = self.root / "lsh.pkl"
+        self.log_path = self.root / "log.json"
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def _run(self):
+        return run_pipeline(
+            raw_dir=self.raw_dir,
+            processed_dir=self.processed_dir,
+            state=self.state,
+            lsh_path=self.lsh_path,
+            log_path=self.log_path,
+        )
+
+    def test_dedupes_and_builds_nested_schema(self):
+        _write_raw_file(
+            self.raw_dir / "50" / "t1.jsonl",
+            [
+                _post("1001", "wach rakoum khouya chkoun jab had le khabar الجديد اليوم", "50"),
+                _post("1002", "wach rakoum khouya chkoun jab had le khabar الجديد اليوم", "50"),  # exact dup
+                _post("1003", "بصح هذا خبر مختلف تماما عن الأول و لا علاقة بينهما", "50"),
+            ],
+        )
+        result = self._run()
+
+        self.assertEqual(result["posts_collected"], 3)
+        self.assertEqual(result["posts_retained"], 2)
+
+        batch_path = self.processed_dir / f"batch_{date.today().isoformat()}.jsonl"
+        docs = [json.loads(line) for line in batch_path.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(len(docs), 2)
+
+        doc = docs[0]
+        self.assertEqual(doc["id"], "djelfa_1001")
+        self.assertEqual(doc["source"], "djelfa_info")
+        self.assertEqual(doc["source_type"], "forum_post")
+        self.assertEqual(doc["source_metadata"]["subforum"], "50")
+        self.assertEqual(doc["source_metadata"]["thread_url"], "https://www.djelfa.info/vb/showthread.php?t=t1")
+        self.assertIsNone(doc["script"])
+        self.assertIsNone(doc["darija_confidence"])
+
+    def test_per_subforum_breakdown(self):
+        _write_raw_file(self.raw_dir / "50" / "t1.jsonl", [_post("1001", "نص فريد رقم واحد هنا", "50")])
+        _write_raw_file(self.raw_dir / "77" / "t2.jsonl", [_post("2001", "نص فريد رقم اثنان هنا", "77", thread_id="t2")])
+
+        result = self._run()
+
+        self.assertEqual(result["by_subforum"]["50"], {"posts_collected": 1, "posts_retained": 1})
+        self.assertEqual(result["by_subforum"]["77"], {"posts_collected": 1, "posts_retained": 1})
+
+    def test_reruns_skip_already_processed_raw_files(self):
+        _write_raw_file(self.raw_dir / "50" / "t1.jsonl", [_post("1001", "محتوى فريد للتحقق من عدم التكرار", "50")])
+        first = self._run()
+        self.assertEqual(first["posts_collected"], 1)
+
+        second = self._run()
+        self.assertEqual(second["posts_collected"], 0)
+        self.assertEqual(second["threads_processed"], 0)
+
+    def test_log_json_tracks_cumulative_totals(self):
+        _write_raw_file(self.raw_dir / "50" / "t1.jsonl", [_post("1001", "محتوى أول للسجل التراكمي هنا", "50")])
+        self._run()
+        _write_raw_file(self.raw_dir / "50" / "t2.jsonl", [_post("1002", "محتوى ثاني مختلف تماما للسجل", "50", thread_id="t2")])
+        self._run()
+
+        log = json.loads(self.log_path.read_text(encoding="utf-8"))
+        self.assertEqual(len(log["runs"]), 2)
+        self.assertEqual(log["cumulative"]["posts_retained"], 2)
+        self.assertEqual(log["cumulative_by_subforum"]["50"]["posts_retained"], 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

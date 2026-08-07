@@ -1,0 +1,13 @@
+# List of YouTube video links (or bare video IDs) to scrape comments from.
+#
+# Accepts full URLs in any common shape, or a bare 11-character video ID:
+#   https://www.youtube.com/watch?v=XXXXXXXXXXX
+#   https://youtu.be/XXXXXXXXXXX
+#   https://www.youtube.com/shorts/XXXXXXXXXXX
+#   XXXXXXXXXXX
+#
+# Target Algerian vloggers, comedy/sketch channels, football/sports
+# commentary and reaction videos, news channel comment sections, and
+# podcast episodes (see Readme.md).
+
+videos:

@@ -1,0 +1,32 @@
+# Secrets / credentials
+.env
+**/.env
+**/config/pasted_curl.txt
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Scraped/generated data (kept local, not versioned)
+Youtube_scrap/data/raw/*
+Youtube_scrap/data/processed/*
+Youtube_scrap/data/state/*
+Youtube_scrap/data/logs/*
+!Youtube_scrap/data/raw/.gitkeep
+!Youtube_scrap/data/processed/.gitkeep
+!Youtube_scrap/data/state/.gitkeep
+!Youtube_scrap/data/logs/.gitkeep
+
+Mountada_djelfa_scrap/data/raw/*
+Mountada_djelfa_scrap/data/processed/*
+Mountada_djelfa_scrap/data/processed_backup_pre_durability_fix/*
+Mountada_djelfa_scrap/data/state/*
+Mountada_djelfa_scrap/data/logs/*
+!Mountada_djelfa_scrap/data/raw/.gitkeep
+!Mountada_djelfa_scrap/data/processed/.gitkeep
+!Mountada_djelfa_scrap/data/state/.gitkeep
+!Mountada_djelfa_scrap/data/logs/.gitkeep
+
+# Notebook checkpoints
+.ipynb_checkpoints/

@@ -1,0 +1,39 @@
+# List of YouTube channels to scrape, newest videos first.
+#
+# Each entry needs either:
+#   - handle: the @handle shown on the channel page (e.g. "@somechannel"), or
+#   - channel_id: the raw channel ID (starts with "UC...")
+#
+# Optional `max_videos` caps how many of the channel's NEWEST videos get
+# scraped (useful to bound quota spend on channels with huge back
+# catalogs). Omit it to eventually walk the whole channel, safely spread
+# across as many resumed runs as needed.
+#
+# Use `python scripts/discover_channels.py` to search for candidate
+# channels, then paste the ones that fit here.
+
+channels:
+# Example (replace with real channels):
+# channels:
+#   - handle: "@example_channel"
+#     max_videos: 20
+#   - channel_id: "UCxxxxxxxxxxxxxxxxxxxxxx"
+
+# BAC (baccalaureate exam prep) channels — discovered via
+# `discover_channels.py --keywords "باك"`. Educational, not the primary
+# vlog/comedy/sports profile, but kept unfiltered per the project's
+# "collect broadly, filter downstream" policy — student comment sections
+# on personality-driven prep channels still skew dialectal.
+  - channel_id: "UCev2pnw8hq-4V7zkD924orA"  # Bacevolution
+  - channel_id: "UCZ3tcD6JnJWYPIQbfap6lHA"  # BAC with moon
+  - channel_id: "UClVdZph6R7ZRoTq8FZHsx3A"  # BAC WITH 18 | LYES ST
+  - channel_id: "UCvca_dCx_2CqldSPwhFxgKw"  # الباك في الجيب | Bac Feljib
+  - channel_id: "UCE-8XGVGfNhks935Pg08t9A"  # sally.français
+  - channel_id: "UCSXDZQNA7uaW1PHh0Zn29Wg"  # Bac Math - الرياضيات للادبيين
+  - channel_id: "UCYFowa-1F6wcYZZvrfQCZyg"  # Bac with 19 | بــــاك بـــ 19
+  - channel_id: "UCD9ob_2fCkmqlfTp0YaNRGQ"  # البكالوريا مع سمير | BAC WITH SAMIR
+  - channel_id: "UCMXkZZ4cpRJ87JhbLbxH9Iw"  # Clicbac - موقع كليك باك
+  - channel_id: "UCeFN0dbD-1fOrlVJi1X2h_g"  # Bac avec wiam
+  - channel_id: "UC_4JcFVfzl5f5runRldZgtw"  # الأستاذ قنشوبة
+  - channel_id: "UCTiFoJXhyBE1QYL4ClQVprQ"  # الاستاذ حيقون أسامة
+  - channel_id: "UCL-Pz7CzO7l88XJ2ccHPGCQ"  # الأستاذ عبدوش
