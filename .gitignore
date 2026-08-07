@@ -28,5 +28,16 @@ Mountada_djelfa_scrap/data/logs/*
 !Mountada_djelfa_scrap/data/state/.gitkeep
 !Mountada_djelfa_scrap/data/logs/.gitkeep
 
+# Internal planning/context docs (not for the public repo)
+Project_context.md
+**/PLAN.md
+Youtube_scrap/youtube_scrap.md
+Mountada_djelfa_scrap/djelfa_scrap.md
+
+# Sample/placeholder data — a single combined dataset will be added
+# explicitly later instead of these
+Data/*.jsonl
+Data/*.json
+
 # Notebook checkpoints
 .ipynb_checkpoints/
