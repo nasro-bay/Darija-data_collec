@@ -2,8 +2,9 @@
 1,000-comment representative sample — see
 Notebooks/02_cleaning_rules_youtube.ipynb for the prevalence data and
 rationale behind each rule (including amendments found by validating this
-implementation against that sample, in the notebook's Section 10). Not yet
-wired into pipeline.py.
+implementation against that sample, in the notebook's Section 10), plus
+Notebooks/03_build_vocabulary.ipynb for the Unicode-normalization rule
+(found via the vocabulary's "other" script bucket). Wired into pipeline.py.
 
 Rules preserve expressive language (elongated letters, emoji) rather than
 stripping it outright, per the project's "preserve natural variation"
@@ -13,6 +14,7 @@ signaled for the caller to drop, not silently emptied.
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Optional
 
 URL_RE = re.compile(r"(?:https?://\S+|www\.\S+)", re.IGNORECASE)
@@ -72,6 +74,22 @@ _MULTI_NEWLINE_RE = re.compile(r"\n{3,}")
 _NON_WORD_RE = re.compile(r"[^\w؀-ۿ]", re.UNICODE)
 
 MIN_RESIDUAL_LETTERS = 2  # below this (after stripping emoji/punctuation), drop the doc
+
+
+def normalize_unicode_forms(text: str) -> str:
+    """NFKC-normalizes compatibility characters to their canonical form --
+    catches Arabic Presentation Forms ligatures (found via the vocabulary
+    notebook's "other" script bucket) that the plain [؀-ۿ] Arabic
+    range doesn't recognize as Arabic at all, e.g. "ﷺ" (a single
+    religious-phrase ligature) -> "صلى الله عليه وسلم", "ﷲ" -> "الله",
+    "ﻻ" -> "لا". Also normalizes presentation-form letter variants
+    (e.g. "ﻣﻦ" -> "من") and full-width digits/Latin to their
+    plain equivalents. Verified empirically to leave Arabic-Indic digits,
+    ASCII digits, tatweel, ZWJ-joined compound emoji, tachkil, and French
+    accented letters unchanged -- only touches compatibility-equivalent
+    characters, not the real content those other rules depend on.
+    """
+    return unicodedata.normalize("NFKC", text)
 
 
 def strip_invisible_chars(text: str) -> str:
@@ -141,7 +159,12 @@ def residual_letter_count(text: str) -> int:
 def clean(text: str) -> Optional[str]:
     """Applies all rules in order and returns the cleaned text, or `None`
     if the result should be dropped (near-empty after cleaning).
+
+    Unicode normalization runs first so every other rule (regex-based, all
+    matching specific codepoint ranges) sees canonical text rather than
+    presentation-form ligatures that wouldn't match them.
     """
+    text = normalize_unicode_forms(text)
     text = strip_invisible_chars(text)
     text = strip_tachkil(text)
     text = replace_mentions(text)

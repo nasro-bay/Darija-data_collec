@@ -2,7 +2,9 @@
 from a 1,000-post representative sample — see
 Notebooks/02_cleaning_rules_djelfa.ipynb for the prevalence data and
 rationale behind each rule (including amendments found by validating this
-implementation against that sample). Not yet wired into pipeline.py.
+implementation against that sample), plus Notebooks/03_build_vocabulary.ipynb
+for the Unicode-normalization rule (found via the vocabulary's "other"
+script bucket). Wired into pipeline.py.
 
 Rules preserve expressive language (elongated letters, emoji) rather than
 stripping it outright, per the project's "preserve natural variation"
@@ -13,6 +15,7 @@ the caller to drop, not silently emptied.
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Optional
 
 URL_RE = re.compile(r"(?:https?://\S+|www\.\S+)", re.IGNORECASE)
@@ -102,6 +105,22 @@ _NON_WORD_RE = re.compile(r"[^\w؀-ۿ]", re.UNICODE)
 MIN_RESIDUAL_LETTERS = 2  # below this (after stripping emoji/punctuation), drop the doc
 
 
+def normalize_unicode_forms(text: str) -> str:
+    """NFKC-normalizes compatibility characters to their canonical form --
+    catches Arabic Presentation Forms ligatures (found via the vocabulary
+    notebook's "other" script bucket) that the plain [؀-ۿ] Arabic
+    range doesn't recognize as Arabic at all, e.g. "ﷺ" (a single
+    religious-phrase ligature) -> "صلى الله عليه وسلم", "ﷲ" -> "الله",
+    "ﻻ" -> "لا". Also normalizes presentation-form letter variants
+    (e.g. "ﻣﻦ" -> "من") and full-width digits/Latin to their
+    plain equivalents. Verified empirically to leave Arabic-Indic digits,
+    ASCII digits, tatweel, ZWJ-joined compound emoji, tachkil, and French
+    accented letters unchanged -- only touches compatibility-equivalent
+    characters, not the real content those other rules depend on.
+    """
+    return unicodedata.normalize("NFKC", text)
+
+
 def strip_widget_leak(text: str) -> str:
     return WIDGET_LEAK_RE.sub("", text)
 
@@ -160,12 +179,16 @@ def clean(text: str) -> Optional[str]:
     """Applies all rules in order and returns the cleaned text, or `None`
     if the result should be dropped (near-empty after cleaning).
 
-    Order matters: widget-leak and quote-wrapper stripping run first since
-    they're large blocks that would otherwise skew everything downstream;
-    tatweel is stripped before the general elongation collapse so it isn't
-    miscounted as a "real" elongated letter; URLs are replaced before
-    elongation collapsing so "www" doesn't get caught by it.
+    Order matters: Unicode normalization runs first so every other rule
+    (regex-based, all matching specific codepoint ranges) sees canonical
+    text rather than presentation-form ligatures that wouldn't match them.
+    Widget-leak and quote-wrapper stripping run next since they're large
+    blocks that would otherwise skew everything downstream; tatweel is
+    stripped before the general elongation collapse so it isn't miscounted
+    as a "real" elongated letter; URLs are replaced before elongation
+    collapsing so "www" doesn't get caught by it.
     """
+    text = normalize_unicode_forms(text)
     text = strip_widget_leak(text)
     text = strip_quote_wrapper(text)
     text = strip_bbcode(text)

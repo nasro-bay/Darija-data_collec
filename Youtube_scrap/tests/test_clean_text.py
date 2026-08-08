@@ -42,5 +42,36 @@ class TachkilTests(unittest.TestCase):
         self.assertEqual(result, "السلام عليكم ورحمة الله")
 
 
+class UnicodeNormalizationTests(unittest.TestCase):
+    """NFKC normalization, added after Notebooks/03_build_vocabulary.ipynb's
+    "other" script bucket turned up Arabic Presentation Forms ligatures
+    (a different Unicode block than the plain Arabic range every other
+    rule checks against, so they were invisible to those rules)."""
+
+    def test_religious_phrase_ligature_expands(self):
+        self.assertEqual(clean_text.normalize_unicode_forms("ﷺ"), "صلى الله عليه وسلم")
+
+    def test_allah_ligature_expands(self):
+        self.assertEqual(clean_text.normalize_unicode_forms("ﷲ"), "الله")
+
+    def test_lam_alef_ligature_expands(self):
+        self.assertEqual(clean_text.normalize_unicode_forms("ﻻ"), "لا")
+
+    def test_positional_letter_forms_normalize(self):
+        self.assertEqual(clean_text.normalize_unicode_forms("ﻣﻦ"), "من")
+        self.assertEqual(clean_text.normalize_unicode_forms("ﻓﻲ"), "في")
+
+    def test_ascii_and_arabic_indic_digits_untouched(self):
+        self.assertEqual(clean_text.normalize_unicode_forms("1500 و ١٥٠٠"), "1500 و ١٥٠٠")
+
+    def test_tatweel_emoji_tachkil_untouched(self):
+        text = "مرحبـــا 😂🤷‍♀️ شُكْرًا"
+        self.assertEqual(clean_text.normalize_unicode_forms(text), text)
+
+    def test_clean_expands_ligature_and_keeps_rest_of_pipeline_working(self):
+        result = clean_text.clean("ربي يرحمو ﷺ وربي يبارك ﷲ فيك")
+        self.assertEqual(result, "ربي يرحمو صلى الله عليه وسلم وربي يبارك الله فيك")
+
+
 if __name__ == "__main__":
     unittest.main()
