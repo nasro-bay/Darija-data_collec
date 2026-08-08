@@ -1,6 +1,9 @@
-"""Runs newly-scraped raw comments through near-dup dedup and writes the
-schema-conformant corpus, appending one entry to the single global JSON
-log (data/logs/log.json) per run.
+"""Runs newly-scraped raw comments through clean_text.clean() (dropping
+near-empty results), then near-dup dedup on the *cleaned* text, and writes
+the schema-conformant corpus — appending one entry to the single global
+JSON log (data/logs/log.json) per run. Cleaning runs before dedup so
+noise variation (URLs, elongated letters, punctuation runs, etc.) doesn't
+hide near-duplicates from each other.
 """
 from __future__ import annotations
 
@@ -8,7 +11,7 @@ import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from . import dedup, schema
+from . import clean_text, dedup, schema
 from .state import State
 
 
@@ -20,7 +23,12 @@ def _append_log(log_path: Path, run_entry: dict) -> None:
     else:
         log = {
             "runs": [],
-            "cumulative": {"videos_scraped": 0, "comments_collected": 0, "comments_retained": 0},
+            "cumulative": {
+                "videos_scraped": 0,
+                "comments_collected": 0,
+                "comments_dropped_empty": 0,
+                "comments_retained": 0,
+            },
         }
     log["runs"].append(run_entry)
     for key in log["cumulative"]:
@@ -39,6 +47,7 @@ def run_pipeline(
     lsh = dedup.load_lsh(lsh_path)
 
     comments_collected = 0
+    comments_dropped_empty = 0
     comments_retained = 0
 
     today = date.today().isoformat()
@@ -54,7 +63,11 @@ def run_pipeline(
                         continue
                     comment = json.loads(line)
                     comments_collected += 1
-                    text = comment["text"]
+                    cleaned = clean_text.clean(comment["text"])
+                    if cleaned is None:
+                        comments_dropped_empty += 1
+                        continue
+                    text = cleaned
                     minhash = dedup.text_to_minhash(text)
                     doc_id = f"yt_{comment['video_id']}_{comment['comment_id']}"
                     if dedup.is_near_duplicate(lsh, doc_id, minhash):
@@ -79,6 +92,7 @@ def run_pipeline(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "videos_scraped": len(raw_files),
         "comments_collected": comments_collected,
+        "comments_dropped_empty": comments_dropped_empty,
         "comments_retained": comments_retained,
     }
     _append_log(log_path, run_entry)

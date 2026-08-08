@@ -47,6 +47,17 @@ TATWEEL_RE = re.compile(r"ـ+")
 # observed to follow it in the sample.
 WIDGET_LEAK_RE = re.compile(r"أكبر تواجد بالمنتدى كان.*", re.DOTALL)
 
+# Arabic diacritics (tachkil/tashkeel: fatha, damma, kasra, sukun, shadda,
+# tanwin, etc.) plus the superscript alef (dagger alef). Not a Darija
+# feature — casual Darija is written essentially undiacritized; diacritized
+# fragments found in real samples (26.9% prevalence, much higher than
+# YouTube's 0.6%) were religious/poetic quotes, formal text, or usernames
+# bleeding in via the quote wrapper — not deliberate dialectal expression.
+# Stripped outright (not collapsed) since they carry no dialectal signal
+# and just fragment tokenization (e.g. "السلام" vs "السَّلَام" as distinct
+# tokens for the same word).
+TACHKIL_RE = re.compile("[ً-ٰٟ]")
+
 _ZWJ = "‍"
 _VS16 = "️"  # emoji variation selector
 
@@ -107,6 +118,10 @@ def strip_tatweel(text: str) -> str:
     return TATWEEL_RE.sub("", text)
 
 
+def strip_tachkil(text: str) -> str:
+    return TACHKIL_RE.sub("", text)
+
+
 def replace_urls(text: str) -> str:
     return URL_RE.sub(" [URL] ", text)
 
@@ -155,6 +170,7 @@ def clean(text: str) -> Optional[str]:
     text = strip_quote_wrapper(text)
     text = strip_bbcode(text)
     text = strip_tatweel(text)
+    text = strip_tachkil(text)
     text = replace_urls(text)
     text = collapse_elongation(text)
     text = normalize_punctuation(text)

@@ -11,3 +11,4 @@ data/logs/*
 !data/processed/.gitkeep
 !data/state/.gitkeep
 !data/logs/.gitkeep
+data/backup_*/

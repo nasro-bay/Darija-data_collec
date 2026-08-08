@@ -93,8 +93,14 @@ class PipelineTests(unittest.TestCase):
 
         result = self._run()
 
-        self.assertEqual(result["by_subforum"]["50"], {"posts_collected": 1, "posts_retained": 1})
-        self.assertEqual(result["by_subforum"]["77"], {"posts_collected": 1, "posts_retained": 1})
+        self.assertEqual(
+            result["by_subforum"]["50"],
+            {"posts_collected": 1, "posts_dropped_empty": 0, "posts_retained": 1},
+        )
+        self.assertEqual(
+            result["by_subforum"]["77"],
+            {"posts_collected": 1, "posts_dropped_empty": 0, "posts_retained": 1},
+        )
 
     def test_reruns_skip_already_processed_raw_files(self):
         _write_raw_file(self.raw_dir / "50" / "t1.jsonl", [_post("1001", "محتوى فريد للتحقق من عدم التكرار", "50")])
@@ -115,6 +121,66 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(len(log["runs"]), 2)
         self.assertEqual(log["cumulative"]["posts_retained"], 2)
         self.assertEqual(log["cumulative_by_subforum"]["50"]["posts_retained"], 2)
+
+    def test_text_is_cleaned_before_writing(self):
+        _write_raw_file(
+            self.raw_dir / "50" / "t1.jsonl",
+            [_post("1001", "اقتباس:\nالمشاركة الأصلية كتبت بواسطة someone\nهذا ردي الحقيقي هنا وربي يعلم", "50")],
+        )
+        result = self._run()
+
+        self.assertEqual(result["posts_retained"], 1)
+        batch_path = self.processed_dir / f"batch_{date.today().isoformat()}.jsonl"
+        doc = json.loads(batch_path.read_text(encoding="utf-8").splitlines()[0])
+        self.assertNotIn("اقتباس:", doc["text"])
+        self.assertNotIn("المشاركة الأصلية", doc["text"])
+        self.assertIn("هذا ردي الحقيقي هنا وربي يعلم", doc["text"])
+
+    def test_near_empty_after_cleaning_is_dropped_not_retained(self):
+        # Pure widget-leak boilerplate -> clean_text.clean() returns None.
+        _write_raw_file(
+            self.raw_dir / "50" / "t1.jsonl",
+            [_post("1001", "أكبر تواجد بالمنتدى كان: 25,091 بتاريخ 2019-04-29", "50")],
+        )
+        result = self._run()
+
+        self.assertEqual(result["posts_collected"], 1)
+        self.assertEqual(result["posts_dropped_empty"], 1)
+        self.assertEqual(result["posts_retained"], 0)
+        self.assertEqual(result["by_subforum"]["50"]["posts_dropped_empty"], 1)
+
+        batch_path = self.processed_dir / f"batch_{date.today().isoformat()}.jsonl"
+        self.assertFalse(batch_path.exists())
+
+    def test_cleaning_collapses_boilerplate_variants_into_near_duplicates(self):
+        # Same real reply, quoting two different users -> distinct raw text,
+        # but identical after the quote-wrapper is stripped. Confirms
+        # cleaning runs *before* dedup, per the pipeline's docstring.
+        _write_raw_file(
+            self.raw_dir / "50" / "t1.jsonl",
+            [
+                _post("1001", "اقتباس:\nالمشاركة الأصلية كتبت بواسطة ahmed\nنعم صحيح كلامك بالضبط", "50"),
+                _post("1002", "اقتباس:\nالمشاركة الأصلية كتبت بواسطة sara\nنعم صحيح كلامك بالضبط", "50"),
+            ],
+        )
+        result = self._run()
+
+        self.assertEqual(result["posts_collected"], 2)
+        self.assertEqual(result["posts_retained"], 1)
+
+    def test_log_json_tracks_dropped_empty_totals(self):
+        _write_raw_file(
+            self.raw_dir / "50" / "t1.jsonl",
+            [
+                _post("1001", "محتوى حقيقي وفريد هنا لهذا الاختبار", "50"),
+                _post("1002", "أكبر تواجد بالمنتدى كان: 25,091 بتاريخ 2019-04-29", "50"),
+            ],
+        )
+        self._run()
+
+        log = json.loads(self.log_path.read_text(encoding="utf-8"))
+        self.assertEqual(log["cumulative"]["posts_dropped_empty"], 1)
+        self.assertEqual(log["cumulative_by_subforum"]["50"]["posts_dropped_empty"], 1)
 
 
 if __name__ == "__main__":

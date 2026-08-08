@@ -30,6 +30,16 @@ _ZERO_WIDTH_NO_ZWJ_RE = re.compile(
 _ZWJ = "‍"
 _VS16 = "️"  # emoji variation selector
 
+# Arabic diacritics (tachkil/tashkeel: fatha, damma, kasra, sukun, shadda,
+# tanwin, etc.) plus the superscript alef (dagger alef). Not a Darija
+# feature — casual Darija is written essentially undiacritized; the rare
+# diacritized fragments found in real samples were religious/Quranic
+# quotes or formal text bleeding in, not deliberate dialectal expression.
+# Stripped outright (not collapsed) since they carry no dialectal signal
+# and just fragment tokenization (e.g. "السلام" vs "السَّلَام" as distinct
+# tokens for the same word).
+TACHKIL_RE = re.compile("[ً-ٰٟ]")
+
 EMOJI_CLASS = (
     "\U0001F300-\U0001F5FF"
     "\U0001F600-\U0001F64F"
@@ -78,6 +88,10 @@ def strip_invisible_chars(text: str) -> str:
             continue
         out.append(ch)
     return "".join(out)
+
+
+def strip_tachkil(text: str) -> str:
+    return TACHKIL_RE.sub("", text)
 
 
 def replace_mentions(text: str) -> str:
@@ -129,6 +143,7 @@ def clean(text: str) -> Optional[str]:
     if the result should be dropped (near-empty after cleaning).
     """
     text = strip_invisible_chars(text)
+    text = strip_tachkil(text)
     text = replace_mentions(text)
     text = replace_urls(text)
     text = strip_timestamps(text)

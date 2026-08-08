@@ -28,8 +28,14 @@ Mountada_djelfa_scrap/data/logs/*
 !Mountada_djelfa_scrap/data/state/.gitkeep
 !Mountada_djelfa_scrap/data/logs/.gitkeep
 
+# One-time-rebuild backup dirs (data/backup_<reason>/ — see CLAUDE.md's
+# "rebuilding processed output" convention) — always local-only, never
+# versioned, regardless of which rebuild produced them.
+**/data/backup_*/
+
 # Internal planning/context docs (not for the public repo)
 Project_context.md
+CLAUDE.md
 **/PLAN.md
 Youtube_scrap/youtube_scrap.md
 Mountada_djelfa_scrap/djelfa_scrap.md
@@ -41,3 +47,5 @@ Data/*.json
 
 # Notebook checkpoints
 .ipynb_checkpoints/
+
+#

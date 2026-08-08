@@ -1,9 +1,13 @@
-"""Runs newly-scraped raw posts through near-dup dedup and writes the
-schema-conformant corpus, appending one entry to the single global JSON
-log (data/logs/log.json) per run — including a per-subforum breakdown of
-retained posts, per this source's explicit deliverable (see PLAN.md):
+"""Runs newly-scraped raw posts through clean_text.clean() (dropping
+near-empty results), then near-dup dedup on the *cleaned* text, and writes
+the schema-conformant corpus, appending one entry to the single global
+JSON log (data/logs/log.json) per run — including a per-subforum breakdown
+of retained posts, per this source's explicit deliverable (see PLAN.md):
 seeing empirically which sections turned out Darija-dense, not assumed
-up front.
+up front. Cleaning runs before dedup so boilerplate variation (quote
+wrappers, BBCode, tatweel, etc.) doesn't hide near-duplicates from each
+other — e.g. two reposts quoting different users but with identical reply
+text look distinct pre-cleaning, identical post-cleaning.
 """
 from __future__ import annotations
 
@@ -13,7 +17,7 @@ from collections import Counter
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from . import dedup, schema
+from . import clean_text, dedup, schema
 from .state import State
 
 # How often (in raw files) to persist the MinHash LSH index mid-run, in
@@ -31,17 +35,23 @@ def _append_log(log_path: Path, run_entry: dict) -> None:
     else:
         log = {
             "runs": [],
-            "cumulative": {"threads_processed": 0, "posts_collected": 0, "posts_retained": 0},
+            "cumulative": {
+                "threads_processed": 0,
+                "posts_collected": 0,
+                "posts_dropped_empty": 0,
+                "posts_retained": 0,
+            },
             "cumulative_by_subforum": {},
         }
     log["runs"].append(run_entry)
-    for key in ("threads_processed", "posts_collected", "posts_retained"):
+    for key in ("threads_processed", "posts_collected", "posts_dropped_empty", "posts_retained"):
         log["cumulative"][key] += run_entry[key]
     for subforum_id, counts in run_entry["by_subforum"].items():
         totals = log["cumulative_by_subforum"].setdefault(
-            subforum_id, {"posts_collected": 0, "posts_retained": 0}
+            subforum_id, {"posts_collected": 0, "posts_dropped_empty": 0, "posts_retained": 0}
         )
         totals["posts_collected"] += counts["posts_collected"]
+        totals["posts_dropped_empty"] += counts["posts_dropped_empty"]
         totals["posts_retained"] += counts["posts_retained"]
 
     tmp_path = log_path.with_suffix(log_path.suffix + ".tmp")
@@ -60,8 +70,10 @@ def run_pipeline(
     lsh = dedup.load_lsh(lsh_path)
 
     posts_collected = 0
+    posts_dropped_empty = 0
     posts_retained = 0
     by_subforum: Counter = Counter()
+    by_subforum_dropped: Counter = Counter()
     by_subforum_retained: Counter = Counter()
 
     today = date.today().isoformat()
@@ -78,7 +90,12 @@ def run_pipeline(
                 post = json.loads(line)
                 posts_collected += 1
                 by_subforum[post["subforum_id"]] += 1
-                text = post["text"]
+                cleaned = clean_text.clean(post["text"])
+                if cleaned is None:
+                    posts_dropped_empty += 1
+                    by_subforum_dropped[post["subforum_id"]] += 1
+                    continue
+                text = cleaned
                 minhash = dedup.text_to_minhash(text)
                 doc_id = f"djelfa_{post['post_id']}"
                 if dedup.is_near_duplicate(lsh, doc_id, minhash):
@@ -127,10 +144,12 @@ def run_pipeline(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "threads_processed": threads_processed,
         "posts_collected": posts_collected,
+        "posts_dropped_empty": posts_dropped_empty,
         "posts_retained": posts_retained,
         "by_subforum": {
             subforum_id: {
                 "posts_collected": by_subforum[subforum_id],
+                "posts_dropped_empty": by_subforum_dropped[subforum_id],
                 "posts_retained": by_subforum_retained[subforum_id],
             }
             for subforum_id in by_subforum
