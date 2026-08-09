@@ -50,3 +50,14 @@ Data/*.json
 
 #CSVs
 Data/*.csv
+
+#Twifil
+Twifil/*
+
+# Tokenizer training corpus/held-out set and trained model artifacts --
+# large and fully reproducible via Tokenization/scripts/*.py, same
+# "generated data, not versioned" treatment as every other data/ dir above.
+Tokenization/data/*
+Tokenization/models/*
+!Tokenization/data/.gitkeep
+!Tokenization/models/.gitkeep

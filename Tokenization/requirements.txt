@@ -1,0 +1,7 @@
+sentencepiece
+tokenizers
+pandas
+matplotlib
+arabic-reshaper
+python-bidi
+tqdm
