@@ -1,6 +1,6 @@
 ---
 title: Algerian Darija Stochastic Arabizi Transliterator
-emoji: 🇩🇿
+emoji: 🔀
 colorFrom: red
 colorTo: green
 sdk: gradio
