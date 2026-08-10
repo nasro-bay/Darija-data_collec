@@ -8,7 +8,7 @@ sdk_version: 5.0.0
 app_file: app.py
 pinned: false
 license: mit
-
+---
 # Algerian Darija Stochastic Arabizi Transliterator
 
 A web application and API that transliterates Algerian Darija text from Arabic script to Arabizi (Latin script with numerals representing specific Arabic sounds), e.g., `راني عارف` &rarr; `rani 3aref`.
