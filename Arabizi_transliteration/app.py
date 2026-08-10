@@ -34,9 +34,4 @@ demo = gr.Interface(
 )
 
 if __name__ == "__main__":
-    demo.launch(
-        theme=gr.themes.Soft(
-            primary_hue="amber",
-            secondary_hue="stone",
-        ),
-    )
+    demo.launch()
