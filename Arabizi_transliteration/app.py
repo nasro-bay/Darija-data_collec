@@ -1,3 +1,4 @@
+import spaces
 import gradio as gr
 from transliterate import transliterate
 
@@ -16,8 +17,14 @@ examples = [
     ["الدار في وهران غير واه وشتاكاين"]
 ]
 
+
+@spaces.GPU
+def run(arabic_text):
+    return transliterate(arabic_text)
+
+
 demo = gr.Interface(
-    fn=transliterate,
+    fn=run,
     inputs=gr.Textbox(
         label="Input Arabic Script (Algerian Darija)",
         placeholder="Type here (e.g., راني عارف)...",
