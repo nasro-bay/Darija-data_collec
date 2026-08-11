@@ -65,24 +65,30 @@ class YouTubeClient:
     def resolve_channel(
         self, *, channel_id: Optional[str] = None, handle: Optional[str] = None
     ) -> Optional[dict]:
-        """Resolves a channel id/handle to its id and uploads-playlist id (1 unit).
+        """Resolves a channel id/handle to its id, uploads-playlist id, title, and customUrl (1 unit).
 
         The uploads playlist is returned newest-video-first by
         `playlistItems.list`, which is what makes newest-first channel
         walks cheap (no need for `search.list(order=date)`).
         """
         if channel_id:
-            request = self._youtube.channels().list(part="contentDetails", id=channel_id)
+            request = self._youtube.channels().list(part="snippet,contentDetails", id=channel_id)
         elif handle:
-            request = self._youtube.channels().list(part="contentDetails", forHandle=handle)
+            request = self._youtube.channels().list(part="snippet,contentDetails", forHandle=handle)
         else:
             return None
         response = self._execute(request, COST_CHANNELS_LIST)
         items = response.get("items", [])
         if not items:
             return None
+        snippet = items[0].get("snippet", {})
         uploads_playlist_id = items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
-        return {"channel_id": items[0]["id"], "uploads_playlist_id": uploads_playlist_id}
+        return {
+            "channel_id": items[0]["id"],
+            "uploads_playlist_id": uploads_playlist_id,
+            "title": snippet.get("title", ""),
+            "custom_url": snippet.get("customUrl", ""),
+        }
 
     def list_playlist_video_ids(
         self, playlist_id: str, page_token: Optional[str] = None
@@ -104,7 +110,11 @@ class YouTubeClient:
         if not items:
             return None
         snippet = items[0]["snippet"]
-        return {"channel_id": snippet["channelId"], "title": snippet.get("title", "")}
+        return {
+            "channel_id": snippet["channelId"],
+            "channel_title": snippet.get("channelTitle", ""),
+            "title": snippet.get("title", ""),
+        }
 
     def list_comment_threads(self, video_id: str, page_token: Optional[str] = None) -> dict:
         request = self._youtube.commentThreads().list(

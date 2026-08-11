@@ -203,6 +203,8 @@ def scrape_video(client: YouTubeClient, state: State, raw_dir: Path, video_url_o
             return {"video_id": video_id, "status": "error", "reason": "video not found"}
         channel_id = metadata["channel_id"]
         video_state["channel_id"] = channel_id
+        if metadata.get("channel_title"):
+            state.record_channel_info(channel_id, metadata["channel_title"])
         state.save()
 
     status = scrape_video_comments(client, state, raw_dir, video_id, channel_id)
@@ -238,6 +240,7 @@ def scrape_channel(
         resolved_id = resolved["channel_id"]
         if handle:
             state.remember_handle(handle, resolved_id)
+        state.record_channel_info(resolved_id, resolved.get("title", ""), resolved.get("custom_url", ""))
         channel_state = state.channel_state(resolved_id)
         if not channel_state["uploads_playlist_id"]:
             channel_state["uploads_playlist_id"] = resolved["uploads_playlist_id"]

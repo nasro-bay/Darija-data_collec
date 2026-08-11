@@ -92,6 +92,27 @@ class State:
     def remember_handle(self, handle: str, channel_id: str) -> None:
         self.data["handles"][handle] = channel_id
 
+    # --- channel info storage ---
+    def record_channel_info(self, channel_id: str, title: str, custom_url: str = "") -> None:
+        names_file = self.path.parent / "channel_names.json"
+        data = {}
+        if names_file.exists():
+            try:
+                with names_file.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception:
+                pass
+        if channel_id not in data or title:
+            entry = data.get(channel_id, {"channel_id": channel_id})
+            entry["title"] = title or entry.get("title", "")
+            entry["custom_url"] = custom_url or entry.get("custom_url", "")
+            data[channel_id] = entry
+            names_file.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = names_file.with_suffix(".tmp")
+            with tmp_path.open("w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            replace_with_retry(tmp_path, names_file)
+
     # --- pipeline progress ---
     def is_raw_file_processed(self, filename: str) -> bool:
         return filename in self.data["pipeline"]["processed_raw_files"]
