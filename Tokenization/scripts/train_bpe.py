@@ -1,11 +1,8 @@
 #!/usr/bin/env python
-"""Trains the byte-level BPE tokenizer (GPT-2/RoBERTa-style) on
-data/train_corpus.txt (built by build_training_corpus.py), via the HF
-`tokenizers` library. Byte-level pre-tokenization means zero true OOV by
-construction -- every byte maps to something in the base vocab.
-"""
+"""Train a byte-level BPE tokenizer (GPT-2/RoBERTa-style) on data/train_corpus.txt."""
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 from tokenizers import Tokenizer
@@ -14,36 +11,41 @@ from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import ByteLevel
 from tokenizers.trainers import BpeTrainer
 
-ROOT = Path(__file__).resolve().parents[1]  # scripts/ -> Tokenization/
+ROOT = Path(__file__).resolve().parents[1]
 TRAIN_CORPUS = ROOT / "data" / "train_corpus.txt"
-MODEL_DIR = ROOT / "models" / "bpe"
 
-VOCAB_SIZE = 20_000
 SPECIAL_TOKENS = ["<pad>", "<unk>", "<s>", "</s>"]
 
 
-def main() -> None:
+def train(*, vocab_size: int) -> None:
     if not TRAIN_CORPUS.exists():
         raise FileNotFoundError(f"{TRAIN_CORPUS} not found — run build_training_corpus.py first.")
 
-    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    model_dir = ROOT / "models" / "bpe" / f"bpe_{vocab_size}"
+    model_dir.mkdir(parents=True, exist_ok=True)
 
     tokenizer = Tokenizer(BPE(unk_token="<unk>"))
     tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=False)
     tokenizer.decoder = ByteLevelDecoder()
 
     trainer = BpeTrainer(
-        vocab_size=VOCAB_SIZE,
+        vocab_size=vocab_size,
         min_frequency=2,
         special_tokens=SPECIAL_TOKENS,
         initial_alphabet=ByteLevel.alphabet(),
     )
     tokenizer.train([str(TRAIN_CORPUS)], trainer)
 
-    tokenizer.save(str(MODEL_DIR / "tokenizer.json"))
-    tokenizer.model.save(str(MODEL_DIR))  # writes vocab.json + merges.txt
+    tokenizer.save(str(model_dir / "tokenizer.json"))
+    tokenizer.model.save(str(model_dir))
+    print(f"saved {model_dir / 'tokenizer.json'}, vocab.json, merges.txt")
 
-    print(f"saved {MODEL_DIR / 'tokenizer.json'}, vocab.json, merges.txt")
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Train byte-level BPE tokenizer")
+    parser.add_argument("--vocab-size", type=int, default=20_000, help="vocabulary size")
+    args = parser.parse_args()
+    train(vocab_size=args.vocab_size)
 
 
 if __name__ == "__main__":

@@ -1,38 +1,44 @@
 #!/usr/bin/env python
-"""Trains the SentencePiece Unigram + byte-fallback tokenizer on
-data/train_corpus.txt (built by build_training_corpus.py).
+"""Train a SentencePiece tokenizer (Unigram) on data/train_corpus.txt.
 
-`normalization_rule_name="identity"` is important: SentencePiece
-defaults to its own NFKC normalization pass, which would otherwise run
-on top of (and potentially fight) the normalization clean_text.py
-already applied to the corpus (NFKC, tachkil-stripping, presentation-
-forms ligature expansion) -- disabling it means the trainer sees exactly
-the corpus as cleaned, nothing silently re-normalized underneath.
+Unigram uses the probabilistic subword model from Kudo et al. (2018). Subword
+Regularization is applied at encode time (see tokenizer_utils.py), not here.
+
+`normalization_rule_name="identity"` keeps the corpus exactly as clean_text.py
+left it — SentencePiece's default NFKC pass is disabled.
 """
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import sentencepiece as spm
 
-ROOT = Path(__file__).resolve().parents[1]  # scripts/ -> Tokenization/
+ROOT = Path(__file__).resolve().parents[1]
 TRAIN_CORPUS = ROOT / "data" / "train_corpus.txt"
 MODEL_DIR = ROOT / "models" / "sentencepiece"
-MODEL_PREFIX = MODEL_DIR / "darija_unigram"
 
-VOCAB_SIZE = 20_000
+# Reduce SentencePiece's very verbose INFO logs.
+# 0 = INFO, 1 = WARNING, 2 = ERROR, 3 = FATAL
+spm.set_min_log_level(1)
 
 
-def main() -> None:
+def train(*, vocab_size: int) -> None:
+    """Train a SentencePiece Unigram tokenizer."""
     if not TRAIN_CORPUS.exists():
-        raise FileNotFoundError(f"{TRAIN_CORPUS} not found — run build_training_corpus.py first.")
+        raise FileNotFoundError(
+            f"{TRAIN_CORPUS} not found — "
+            "run build_training_corpus.py first."
+        )
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
+    prefix = MODEL_DIR / f"unigram_{vocab_size}"
+
     spm.SentencePieceTrainer.train(
         input=str(TRAIN_CORPUS),
-        model_prefix=str(MODEL_PREFIX),
-        vocab_size=VOCAB_SIZE,
+        model_prefix=str(prefix),
+        vocab_size=vocab_size,
         model_type="unigram",
         byte_fallback=True,
         character_coverage=0.9995,
@@ -45,7 +51,23 @@ def main() -> None:
         eos_id=3,
     )
 
-    print(f"saved {MODEL_PREFIX}.model / {MODEL_PREFIX}.vocab")
+    print(f"saved {prefix}.model / {prefix}.vocab")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Train a SentencePiece Unigram tokenizer"
+    )
+
+    parser.add_argument(
+        "--vocab-size",
+        type=int,
+        default=20_000,
+        help="vocabulary size (default: 20,000)",
+    )
+
+    args = parser.parse_args()
+    train(vocab_size=args.vocab_size)
 
 
 if __name__ == "__main__":
