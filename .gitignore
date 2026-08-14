@@ -36,6 +36,7 @@ Mountada_djelfa_scrap/data/logs/*
 # Internal planning/context docs (not for the public repo)
 Project_context.md
 CLAUDE.md
+AGENTS.md
 **/PLAN.md
 Youtube_scrap/youtube_scrap.md
 Mountada_djelfa_scrap/djelfa_scrap.md
@@ -61,3 +62,6 @@ Tokenization/data/*
 Tokenization/models/*
 !Tokenization/data/.gitkeep
 !Tokenization/models/.gitkeep
+
+DarijaDZ/*
+Benchmarks/*

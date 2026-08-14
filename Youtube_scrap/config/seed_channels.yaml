@@ -24,15 +24,23 @@ channels:
 # vlog/comedy/sports profile, but kept unfiltered per the project's
 # "collect broadly, filter downstream" policy — student comment sections
 # on personality-driven prep channels still skew dialectal.
-  - channel_id: "UCev2pnw8hq-4V7zkD924orA"  # Bacevolution
-  - channel_id: "UCZ3tcD6JnJWYPIQbfap6lHA"  # BAC with moon
-  - channel_id: "UClVdZph6R7ZRoTq8FZHsx3A"  # BAC WITH 18 | LYES ST
-  - channel_id: "UCvca_dCx_2CqldSPwhFxgKw"  # الباك في الجيب | Bac Feljib
-  - channel_id: "UCE-8XGVGfNhks935Pg08t9A"  # sally.français
-  - channel_id: "UCSXDZQNA7uaW1PHh0Zn29Wg"  # Bac Math - الرياضيات للادبيين
-  - channel_id: "UCYFowa-1F6wcYZZvrfQCZyg"  # Bac with 19 | بــــاك بـــ 19
-  - channel_id: "UCD9ob_2fCkmqlfTp0YaNRGQ"  # البكالوريا مع سمير | BAC WITH SAMIR
-  - channel_id: "UCMXkZZ4cpRJ87JhbLbxH9Iw"  # Clicbac - موقع كليك باك
-  - channel_id: "UCeFN0dbD-1fOrlVJi1X2h_g"  # Bac avec wiam
-  - channel_id: "UCTiFoJXhyBE1QYL4ClQVprQ"  # الاستاذ حيقون أسامة
-  - channel_id: "UCL-Pz7CzO7l88XJ2ccHPGCQ"  # الأستاذ عبدوش
+  - handle: "@amanycook" 
+    max_videos: 100
+  - handle: "@redadeli1"
+    max_videos: 100
+  - handle: "@oum_yara"
+    max_videos: 100
+  - handle: "@hicham_cook"
+    max_videos: 100
+  - handle: "@cuisinedadah"
+    max_videos: 100
+  - handle: "@ChaineEPTV"
+    max_videos: 100
+  - handle: "@Chefsalahlbatni"
+    max_videos: 100
+  - handle: "@M__Zakaria"
+    max_videos: 100
+  - handle: "@islam.bld."
+    max_videos: 100
+  - handle: "@amanycoo"
+    max_videos: 100
