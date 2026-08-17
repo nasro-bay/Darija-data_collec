@@ -142,16 +142,39 @@ def _load_wordpiece(vocab_size: int) -> TokenizerSpec:
     # space-join raw tokens (leaving literal "##" continuation markers in the
     # output). Attach it here at load time rather than rewriting the saved
     # model files.
-    tok.decoder = decoders.WordPiece(prefix="##", cleanup=True)
+    # cleanup=False: the default cleanup=True applies English-oriented
+    # heuristics (e.g. stripping the space before "!", "?") that incorrectly
+    # eat real spaces in this multilingual corpus -- confirmed via a real
+    # heldout mismatch: "نبداو !!" round-tripped to "نبداو!!" with cleanup=True.
+    tok.decoder = decoders.WordPiece(prefix="##", cleanup=False)
+
+    # WhitespaceSplit() treats "\n" as ordinary whitespace, indistinguishable
+    # from a space once collapsed, so the decoder can never restore it --
+    # substitute it for a dedicated special token (registered in
+    # train_wordpiece.py's SPECIAL_TOKENS) around encode, and reverse the
+    # substitution around decode. The regex (not a plain .replace) matters:
+    # it strips up to one space independently on *each* side of "[NEWLINE]"
+    # rather than requiring both, which is what makes it correctly reverse
+    # consecutive newlines (two markers sharing one decoder-inserted space
+    # between them) and newlines at the very start/end of a doc (no space
+    # on one side to match at all) -- a naive symmetric-padding replace
+    # fails both of those. skip_special_tokens=False is required too, since
+    # tok.decode() silently drops special tokens by default.
+    _NEWLINE_TOKEN = "[NEWLINE]"
+    _NEWLINE_DECODE_RE = re.compile(r"\s?\[NEWLINE\]\s?")
+
+    def _to_sentinel(text: str) -> str:
+        return text.replace("\n", f" {_NEWLINE_TOKEN} ")
 
     def encode(text: str) -> list[int]:
-        return tok.encode(text).ids
+        return tok.encode(_to_sentinel(text)).ids
 
     def decode(ids: list[int]) -> str:
-        return tok.decode(ids)
+        decoded = tok.decode(ids, skip_special_tokens=False)
+        return _NEWLINE_DECODE_RE.sub("\n", decoded)
 
     def pieces(text: str) -> list[str]:
-        return tok.encode(text).tokens
+        return tok.encode(_to_sentinel(text)).tokens
 
     return TokenizerSpec(
         key="wordpiece",

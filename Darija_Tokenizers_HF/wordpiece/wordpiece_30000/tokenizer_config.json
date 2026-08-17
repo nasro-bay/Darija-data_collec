@@ -1,0 +1,9 @@
+{
+  "tokenizer_class": "PreTrainedTokenizerFast",
+  "unk_token": "[UNK]",
+  "pad_token": "[PAD]",
+  "cls_token": "[CLS]",
+  "sep_token": "[SEP]",
+  "mask_token": "[MASK]",
+  "clean_up_tokenization_spaces": false
+}
