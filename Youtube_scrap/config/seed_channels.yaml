@@ -24,23 +24,4 @@ channels:
 # vlog/comedy/sports profile, but kept unfiltered per the project's
 # "collect broadly, filter downstream" policy — student comment sections
 # on personality-driven prep channels still skew dialectal.
-  - handle: "@amanycook" 
-    max_videos: 100
-  - handle: "@redadeli1"
-    max_videos: 100
-  - handle: "@oum_yara"
-    max_videos: 100
-  - handle: "@hicham_cook"
-    max_videos: 100
-  - handle: "@cuisinedadah"
-    max_videos: 100
-  - handle: "@ChaineEPTV"
-    max_videos: 100
-  - handle: "@Chefsalahlbatni"
-    max_videos: 100
-  - handle: "@M__Zakaria"
-    max_videos: 100
-  - handle: "@islam.bld."
-    max_videos: 100
-  - handle: "@amanycoo"
-    max_videos: 100
+  - handle: "@Ennahartvonline" 
