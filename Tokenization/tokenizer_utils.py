@@ -10,6 +10,7 @@ from typing import Callable
 
 import sentencepiece as spm
 from tokenizers import Tokenizer as HFTokenizer
+from tokenizers import decoders
 
 ROOT = Path(__file__).resolve().parent
 
@@ -47,13 +48,13 @@ LEGACY_BPE = ROOT / "models" / "bpe" / "tokenizer.json"
 
 
 def sp_model_path(model_type: str, vocab_size: int) -> Path:
-    if model_type not in ("unigram", "wordpiece"):
+    if model_type != "unigram":
         raise ValueError(f"not a SentencePiece model type: {model_type}")
     path = ROOT / "models" / "sentencepiece" / f"{model_type}_{vocab_size}.model"
     if path.exists():
         return path
     # Pre-refactor naming: single 20K unigram model only.
-    if model_type == "unigram" and vocab_size == 20_000 and LEGACY_UNIGRAM.exists():
+    if vocab_size == 20_000 and LEGACY_UNIGRAM.exists():
         return LEGACY_UNIGRAM
     return path
 
@@ -65,6 +66,16 @@ def bpe_model_path(vocab_size: int) -> Path:
     if vocab_size == 20_000 and LEGACY_BPE.exists():
         return LEGACY_BPE
     return path
+
+
+def wordpiece_model_path(vocab_size: int) -> Path:
+    # train_wordpiece.py trains via the HF `tokenizers` library (WordPieceTrainer),
+    # not SentencePiece -- despite PLAN.md's original design calling for
+    # `spm.SentencePieceTrainer(model_type="wordpiece")`. The trained artifact is
+    # an HF tokenizer.json under models/wordpiece/, not a .model file under
+    # models/sentencepiece/ -- this path must match train_wordpiece.py's actual
+    # output, not the original (unimplemented) design.
+    return ROOT / "models" / "wordpiece" / f"wordpiece_{vocab_size}" / "tokenizer.json"
 
 
 def load_heldout_docs(path: Path | None = None) -> list[dict]:
@@ -79,7 +90,7 @@ def load_tokenizer(key: str, vocab_size: int) -> TokenizerSpec:
     if key == "unigram_sr":
         return _load_sentencepiece("unigram", vocab_size, sampling=True)
     if key == "wordpiece":
-        return _load_sentencepiece("wordpiece", vocab_size, sampling=False)
+        return _load_wordpiece(vocab_size)
     if key == "bpe":
         return _load_bpe(vocab_size)
     raise ValueError(f"unknown tokenizer key: {key}")
@@ -120,6 +131,39 @@ def _load_sentencepiece(model_type: str, vocab_size: int, *, sampling: bool) -> 
     )
 
 
+def _load_wordpiece(vocab_size: int) -> TokenizerSpec:
+    path = wordpiece_model_path(vocab_size)
+    if not path.exists():
+        raise FileNotFoundError(f"missing model: {path} — run scripts/train_all.py first")
+
+    tok = HFTokenizer.from_file(str(path))
+    # train_wordpiece.py never attaches a decoder to the saved tokenizer.json,
+    # so a fresh load has none by default -- decode() would otherwise just
+    # space-join raw tokens (leaving literal "##" continuation markers in the
+    # output). Attach it here at load time rather than rewriting the saved
+    # model files.
+    tok.decoder = decoders.WordPiece(prefix="##", cleanup=True)
+
+    def encode(text: str) -> list[int]:
+        return tok.encode(text).ids
+
+    def decode(ids: list[int]) -> str:
+        return tok.decode(ids)
+
+    def pieces(text: str) -> list[str]:
+        return tok.encode(text).tokens
+
+    return TokenizerSpec(
+        key="wordpiece",
+        label=TOKENIZER_LABELS["wordpiece"],
+        vocab_size=vocab_size,
+        encode=encode,
+        decode=decode,
+        pieces=pieces,
+        vocab_size_actual=tok.get_vocab_size(),
+    )
+
+
 def _load_bpe(vocab_size: int) -> TokenizerSpec:
     path = bpe_model_path(vocab_size)
     if not path.exists():
@@ -156,8 +200,10 @@ def discover_available_models() -> list[tuple[str, int]]:
             vocab_size = int(path.stem.rsplit("_", 1)[-1])
             found.add(("unigram", vocab_size))
             found.add(("unigram_sr", vocab_size))
-        for path in sp_dir.glob("wordpiece_*.model"):
-            vocab_size = int(path.stem.rsplit("_", 1)[-1])
+    wordpiece_dir = ROOT / "models" / "wordpiece"
+    if wordpiece_dir.exists():
+        for path in wordpiece_dir.glob("wordpiece_*/tokenizer.json"):
+            vocab_size = int(path.parent.name.rsplit("_", 1)[-1])
             found.add(("wordpiece", vocab_size))
     bpe_dir = ROOT / "models" / "bpe"
     if bpe_dir.exists():

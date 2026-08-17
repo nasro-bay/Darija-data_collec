@@ -5,7 +5,7 @@ from pathlib import Path
 
 from tokenizers import Tokenizer
 from tokenizers.models import WordPiece
-from tokenizers.pre_tokenizers import Whitespace
+from tokenizers.pre_tokenizers import WhitespaceSplit
 from tokenizers.trainers import WordPieceTrainer
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,7 +44,12 @@ def train(*, vocab_size: int) -> None:
         )
     )
 
-    tokenizer.pre_tokenizer = Whitespace()
+    # WhitespaceSplit() (splits only on actual whitespace) rather than
+    # Whitespace() (which also splits off punctuation/emoji into their own
+    # pre-tokens) -- the latter throws away zero-gap adjacency info (e.g.
+    # "[MENTION]" -> "[", "MENTION", "]"), which the decoder can never
+    # recover since it always rejoins pre-tokens with a single space.
+    tokenizer.pre_tokenizer = WhitespaceSplit()
 
     trainer = WordPieceTrainer(
         vocab_size=vocab_size,
