@@ -172,7 +172,7 @@ property, not a vocab-coverage one.
 ## Training data
 
 [DarijaDZ](https://huggingface.co/datasets/nasrellahkharroubi/DarijaDz) —
-~2.79M Algerian YouTube comments, cleaned (NFKC-normalized,
+~3.02M Algerian YouTube comments, cleaned (NFKC-normalized,
 tachkil-stripped, near-dup filtered via MinHash/LSH). ~1.17M documents used
 for training after excluding the held-out evaluation set.
 

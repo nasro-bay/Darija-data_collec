@@ -1,0 +1,95 @@
+{
+  "treebank_train_sentences": 997,
+  "treebank_train_lang_tag_distribution": {
+    "ar_dz": 9408,
+    "fr": 4769,
+    "ar_msa": 528,
+    "_": 162,
+    "en": 83,
+    "es": 25,
+    "de": 6,
+    "pt": 1
+  },
+  "treebank_dev_sentences": 137,
+  "treebank_dev_lang_tag_distribution": {
+    "ar_dz": 1428,
+    "fr": 624,
+    "ar_msa": 60,
+    "_": 32,
+    "en": 11,
+    "es": 2
+  },
+  "treebank_test_sentences": 144,
+  "treebank_test_lang_tag_distribution": {
+    "ar_dz": 1381,
+    "fr": 598,
+    "ar_msa": 87,
+    "_": 31,
+    "en": 13,
+    "es": 6,
+    "tm": 1
+  },
+  "ud_ar_dz_train_sentences": 997,
+  "ud_ar_na_train_sentences": 997,
+  "ud_ar_dz_vs_treebank_pos_train_sentence_count_diff": 0,
+  "narabizi_sentiment_labeled_sentence_count_per_split": {
+    "train": 998,
+    "dev": 137,
+    "test": 144
+  },
+  "narabizi_sentiment_label_distribution": {
+    "POS": 382,
+    "NEG": 352,
+    "MIX": 313,
+    "NEU": 232
+  },
+  "narabizi_topic_labeled_sentence_count_per_split": {
+    "train": 998,
+    "dev": 137,
+    "test": 144
+  },
+  "narabizi_topic_label_distribution": {
+    "SPORT": 464,
+    "NONE": 370,
+    "SOCIETAL": 260,
+    "POLITICS": 107,
+    "PRAYER": 56,
+    "RELIGION": 22
+  },
+  "sentiment_ar_dz_ar_na_train_row_count": {
+    "ar_dz": 564,
+    "ar_na": 564
+  },
+  "sentiment_ar_dz_ar_na_same_labels": true,
+  "sentiment_ar_dz_label_distribution": {
+    "0": 351,
+    "1": 380
+  },
+  "auxiliary_sentiment_languages_row_counts": {
+    "ar": {
+      "train": 35843,
+      "dev": 5134,
+      "test": 10076
+    },
+    "fa": {
+      "train": 615,
+      "dev": 88,
+      "test": 176
+    },
+    "he": {
+      "train": 8702,
+      "dev": 1240,
+      "test": 2492
+    },
+    "mt": {
+      "train": 504,
+      "dev": 72,
+      "test": 145
+    },
+    "ur": {
+      "train": 686,
+      "dev": 98,
+      "test": 196
+    }
+  }
+}

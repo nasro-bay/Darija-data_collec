@@ -52,9 +52,6 @@ Data/*.json
 #CSVs
 Data/*.csv
 
-#Twifil
-Twifil/*
-
 # Tokenizer training corpus/held-out set and trained model artifacts --
 # large and fully reproducible via Tokenization/scripts/*.py, same
 # "generated data, not versioned" treatment as every other data/ dir above.
@@ -64,9 +61,27 @@ Tokenization/models/*
 !Tokenization/models/.gitkeep
 
 DarijaDZ/*
-Benchmarks/*
 Kaggle_DarijaDz/*
 Kaggle.md
+
+# Benchmark datasets (Benchmarks/<name>/) -- downloaded/exported dataset
+# files ignored, same "data ignored, scripts/docs tracked" treatment as
+# Youtube_scrap/Mountada_djelfa_scrap above; each benchmark's own
+# exploration scripts and write-up stay tracked. Also covers the HF
+# `datasets` library's on-disk cache if pointed inside a benchmark folder
+# instead of the default ~/.cache/huggingface.
+# Exception: each benchmark's own <name>_report.json (the exploration
+# script's computed summary -- small, worth versioning, not raw
+# third-party data) stays tracked, unlike everything else under data/.
+Benchmarks/*/data/*
+!Benchmarks/*/data/.gitkeep
+!Benchmarks/*/data/*_report.json
+
+# NArabizi-main/ was downloaded as a full clone of the paper's own repo,
+# which bundles its reproduction code (experiments/) alongside the data --
+# third-party code, not this project's own scripts, so it gets the same
+# "not tracked here" treatment as the data itself rather than being vendored.
+Benchmarks/NArabizi-main/experiments/*
 
 pytest.ini
 

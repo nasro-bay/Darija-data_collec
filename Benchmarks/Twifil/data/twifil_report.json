@@ -1,0 +1,135 @@
+{
+  "num_rows": 6000,
+  "columns": [
+    "ID",
+    "Code",
+    "Post",
+    "lang",
+    "Created At",
+    "Followers Count",
+    "Profile Link Color",
+    "Geo Enabled",
+    "Screen Name",
+    "Name",
+    "Profile Lang",
+    "Polarity",
+    "Polarity Class",
+    "User Age",
+    "Emotion",
+    "Platform"
+  ],
+  "id_unique_count": 6000,
+  "code_sample": [
+    "9.5283479986508e+17",
+    "9.5283475039334e+17",
+    "9.5283463826695e+17"
+  ],
+  "empty_post_count": 0,
+  "duplicate_post_rows": 65,
+  "unique_post_count": 5963,
+  "post_length_chars": {
+    "min": 1,
+    "max": 151,
+    "median": 62,
+    "mean": 73.69
+  },
+  "lang_distribution": {
+    "ar": 2462,
+    "und": 1244,
+    "fr": 1110,
+    "en": 733,
+    "es": 94,
+    "in": 87,
+    "tr": 52,
+    "ht": 45,
+    "pt": 34,
+    "tl": 22,
+    "it": 20,
+    "bn": 18,
+    "ca": 17,
+    "de": 10,
+    "et": 8
+  },
+  "Polarity Class_distribution": {
+    "Positive": 2864,
+    "Negative": 1773,
+    "Neutral": 1363
+  },
+  "Platform_distribution": {
+    "Twitter": 6000
+  },
+  "Profile Lang_distribution": {
+    "fr": 3951,
+    "ar": 1100,
+    "en": 872,
+    "tr": 41,
+    "es": 11,
+    "ja": 7,
+    "en-gb": 7,
+    "pt": 3,
+    "sv": 3,
+    "ko": 2,
+    "it": 1,
+    "id": 1,
+    "zh-CN": 1
+  },
+  "emotion_non_nan_count": 56,
+  "emotion_distribution_non_nan": {
+    "joie, ": 19,
+    "colère, ": 10,
+    "surprise, ": 4,
+    "tristesse, ": 4,
+    "persuasion/conviction, ": 3,
+    "peur, ": 2,
+    "inquiétude, ": 2,
+    "espoir, ": 2,
+    "amour, ": 2,
+    "reproche, reproche, ": 1,
+    "reproche, ": 1,
+    "curiosité, ": 1,
+    "fierté, ": 1,
+    "déception, ": 1,
+    "amour, joie, ": 1,
+    "dégoût, ": 1,
+    "colère, colère, colère, colère, colère, colère, colère, ": 1
+  },
+  "script_distribution_raw": {
+    "mixed": 2300,
+    "latin": 3427,
+    "arabic": 257,
+    "other_empty": 16
+  },
+  "script_distribution_stripped": {
+    "arabic": 2375,
+    "other_empty": 1065,
+    "latin": 2378,
+    "mixed": 182
+  },
+  "empty_after_stripping_mentions_urls": 794,
+  "lang_vs_stripped_script": {
+    "ar": {
+      "arabic": 2346,
+      "latin": 1,
+      "mixed": 111,
+      "other_empty": 4
+    },
+    "fr": {
+      "arabic": 0,
+      "latin": 1098,
+      "mixed": 4,
+      "other_empty": 8
+    },
+    "en": {
+      "arabic": 0,
+      "latin": 724,
+      "mixed": 7,
+      "other_empty": 2
+    },
+    "und": {
+      "arabic": 28,
+      "latin": 159,
+      "mixed": 48,
+      "other_empty": 1009
+    }
+  }
+}

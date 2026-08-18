@@ -2,8 +2,9 @@
 """Builds Data/youtube_corpus.jsonl (id + text only) from all processed
 YouTube batches, then shuffles it into Data/youtube_corpus_shuffled.jsonl
 (external chunk-shuffle -- doesn't need the whole corpus in RAM), then
-updates the numeric statistics already present in the DarijaDZ/ and
-Kaggle_DarijaDz/ dataset-card README.md files to match.
+updates the numeric statistics already present in the DarijaDZ/,
+Kaggle_DarijaDz/, and Darija_Tokenizers_HF/ dataset/model-card README.md
+files to match.
 
 One command now does what used to be two separate scripts
 (build_unified_dataset.py + shuffle_unified_dataset.py, the latter now
@@ -29,6 +30,7 @@ PROCESSED_DIR = ROOT / "Youtube_scrap" / "data" / "processed"
 UNIFIED_PATH = ROOT / "Data" / "youtube_corpus.jsonl"
 SHUFFLED_PATH = ROOT / "Data" / "youtube_corpus_shuffled.jsonl"
 README_PATHS = [ROOT / "DarijaDZ" / "README.md", ROOT / "Kaggle_DarijaDz" / "README.md"]
+TOKENIZER_README_PATH = ROOT / "Darija_Tokenizers_HF" / "README.md"
 
 SHUFFLE_SEED = 42
 SHUFFLE_CHUNK_SIZE = 100_000
@@ -197,6 +199,60 @@ def _sub_plain_number(text: str, label: str, value: str) -> str:
     return new_text
 
 
+def _sub_intro_prose(text: str, total_docs: int, total_tokens: int) -> str:
+    """Replaces the rounded "approximately **X.X million comment
+    documents** and **Y.YY million word-level tokens**" intro sentence.
+    Distinct from _sub_bold_number because the bold spans here wrap the
+    whole "N million <unit>" phrase, not just the number -- the closing
+    ** doesn't immediately follow the digits like it does in the stats
+    table, so _sub_bold_number's assumption doesn't hold here.
+    """
+    pattern = re.compile(
+        r"approximately \*\*[\d.]+ million comment documents\*\* "
+        r"and \*\*[\d.]+ million word-level tokens\*\*"
+    )
+    replacement = (
+        f"approximately **{total_docs / 1_000_000:.1f} million comment documents** "
+        f"and **{total_tokens / 1_000_000:.2f} million word-level tokens**"
+    )
+    new_text, n = pattern.subn(replacement, text, count=1)
+    if n == 0:
+        print(
+            "  WARNING: pattern not found for the intro 'approximately X million...' "
+            "sentence -- a README line was left unchanged"
+        )
+    return new_text
+
+
+def update_tokenizer_readme(stats: dict) -> None:
+    """Darija_Tokenizers_HF/README.md's "Training data" section states the
+    YouTube corpus size as a rounded "~X.XXM Algerian YouTube comments"
+    figure (not a table cell like the other READMEs, so it needs its own
+    substitution pattern). Only that number is touched -- the adjacent
+    "~1.17M documents used for training" figure is a *combined*
+    YouTube+djelfa training-corpus count (Tokenization/data/train_corpus.txt),
+    which this script has no visibility into (it only reads YouTube's
+    processed batches) and shouldn't guess at.
+    """
+    if not TOKENIZER_README_PATH.exists():
+        print(f"  WARNING: {TOKENIZER_README_PATH} not found, skipping")
+        return
+
+    millions = stats["total_docs"] / 1_000_000
+    text = TOKENIZER_README_PATH.read_text(encoding="utf-8")
+    pattern = re.compile(r"~[\d.]+M Algerian YouTube comments")
+    new_text, n = pattern.subn(f"~{millions:.2f}M Algerian YouTube comments", text, count=1)
+    if n == 0:
+        print(
+            "  WARNING: pattern not found for '~X.XXM Algerian YouTube comments' "
+            "-- Darija_Tokenizers_HF/README.md left unchanged"
+        )
+        return
+
+    TOKENIZER_README_PATH.write_text(new_text, encoding="utf-8")
+    print(f"  Updated {TOKENIZER_README_PATH.relative_to(ROOT)}")
+
+
 def update_readmes(stats: dict) -> None:
     total_docs = stats["total_docs"]
     total_tokens = stats["total_tokens"]
@@ -215,6 +271,8 @@ def update_readmes(stats: dict) -> None:
             print(f"  WARNING: {readme_path} not found, skipping")
             continue
         text = readme_path.read_text(encoding="utf-8")
+
+        text = _sub_intro_prose(text, total_docs, total_tokens)
 
         text = _sub_bold_number(text, r"\|\s*Documents\s*\|", f"{total_docs:,}")
         text = _sub_bold_number(text, r"\|\s*Word-level tokens\s*\|", f"{total_tokens:,}")
@@ -252,6 +310,7 @@ def main() -> None:
 
     print("\nUpdating README statistics...")
     update_readmes(stats)
+    update_tokenizer_readme(stats)
 
 
 if __name__ == "__main__":
