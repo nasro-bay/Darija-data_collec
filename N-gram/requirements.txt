@@ -1,0 +1,12 @@
+gradio>=5.9.1
+
+# Also needs Tokenization/'s own dependencies (sentencepiece, tokenizers)
+# since scripts here import Tokenization/tokenizer_utils.py directly --
+# see Tokenization/requirements.txt.
+
+# Also needs kenlm's CLI tools (lmplz, build_binary, query) on PATH for
+# train_ngram.py and evaluate_ngram.py -- NOT installable via pip on this
+# project's Windows/Python 3.13 setup (the `kenlm` PyPI package's Python
+# bindings fail to build here; the CLI tools were built separately from
+# https://github.com/kpu/kenlm's C++ source, cmake targets lmplz/
+# build_binary/query). See README.md's Prerequisites section.

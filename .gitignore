@@ -38,6 +38,7 @@ Project_context.md
 CLAUDE.md
 AGENTS.md
 **/PLAN.md
+N-gram/plan.md
 Youtube_scrap/youtube_scrap.md
 Mountada_djelfa_scrap/djelfa_scrap.md
 
@@ -82,6 +83,18 @@ Benchmarks/*/data/*
 # third-party code, not this project's own scripts, so it gets the same
 # "not tracked here" treatment as the data itself rather than being vendored.
 Benchmarks/NArabizi-main/experiments/*
+
+# N-gram LM: augmented corpus, tokenized train/dev/test splits, and
+# trained ARPA/binary models -- large and fully reproducible via
+# N-gram/scripts/*.py, same "generated data, not versioned" treatment as
+# Tokenization/ above. The small report/eval JSONs (build + eval summary
+# stats) stay tracked, same exception as Benchmarks/ above.
+N-gram/data/*
+N-gram/models/*
+!N-gram/data/.gitkeep
+!N-gram/models/.gitkeep
+!N-gram/data/*_report.json
+!N-gram/data/eval_*.json
 
 pytest.ini
 

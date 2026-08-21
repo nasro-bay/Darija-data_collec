@@ -9,14 +9,14 @@ tags:
 
 library_name: tokenizers
 
-pretty_name: Darija Tokenizers
+pretty_name: DarijaDz Tokenizers
 
 license: mit
 ---
 
-# Darija Tokenizers
+# DarijaDz Tokenizers
 
-![Darija Tokenizers](Darija_dz.png)
+![DarijaDz Tokenizers](Darija_dz.png)
 
 Three subword tokenizer algorithms, trained on the same [DarijaDZ](https://huggingface.co/datasets/nasrellahkharroubi/DarijaDz)
 YouTube-comment corpus, each at 5 vocabulary sizes (**1K, 5K, 10K, 20K, 30K**),
@@ -49,9 +49,6 @@ bpe/
     tokenizer.json, vocab.json, merges.txt  # self-contained (byte-level pre-tokenizer + decoder)
     tokenizer_config.json, special_tokens_map.json
 ```
-
-Built by `Tokenization/scripts/build_hf_repo.py` — rerun it after
-retraining any of the underlying models.
 
 ## Loading
 
@@ -86,17 +83,6 @@ sp.decode(ids)
 The raw `.model`/`.vocab` files also work for plain deterministic Unigram
 without `enable_sampling`, if you'd rather use the `sentencepiece` API
 directly than `AutoTokenizer`.
-
-**Verified**: every one of the 15 subfolders above (3 families × 5 sizes)
-loads via `AutoTokenizer.from_pretrained()` and round-trips correctly,
-checked directly against this repo's actual files before publishing —
-byte-fallback included (the SentencePiece→`tokenizer.json` conversion
-needed a fix for that specifically: `transformers`'s default
-`SpmConverter` builds a byte-fallback-*aware* model but not a
-byte-fallback-*decoding* decoder, so a converted tokenizer would encode
-correctly but leave literal `<0xF0><0x9D>...`-shaped strings in the
-decoded output for any character outside the trained vocabulary's normal
-coverage — see `DarijaUnigramConverter` in `build_hf_repo.py`).
 
 ## Known limitation: WordPiece and literal newlines
 
@@ -172,7 +158,7 @@ property, not a vocab-coverage one.
 ## Training data
 
 [DarijaDZ](https://huggingface.co/datasets/nasrellahkharroubi/DarijaDz) —
-~3.02M Algerian YouTube comments, cleaned (NFKC-normalized,
+~3.72M Algerian YouTube comments, cleaned (NFKC-normalized,
 tachkil-stripped, near-dup filtered via MinHash/LSH). ~1.17M documents used
 for training after excluding the held-out evaluation set.
 
@@ -181,6 +167,6 @@ for training after excluding the held-out evaluation set.
 
 ```text
 Kharroubi Nasrellah.
-Darija Tokenizers: Algerian Darija Subword Tokenizers.
+DarijaDz Tokenizers: Algerian Darija Subword Tokenizers.
 2026.
 ```

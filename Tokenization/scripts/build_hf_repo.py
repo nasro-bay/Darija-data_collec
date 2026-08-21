@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Builds ../Darija_Tokenizers_HF/ -- a HF Hub-ready model repo staging
+"""Builds ../DarijaDz_Tokenizers/ -- a HF Hub-ready model repo staging
 folder -- from the trained models in models/{bpe,wordpiece,sentencepiece}/.
 
 Adds `AutoTokenizer.from_pretrained(...)` support for all three algorithm
@@ -31,7 +31,7 @@ from transformers.convert_slow_tokenizer import SpmConverter, _get_prepend_schem
 
 ROOT = Path(__file__).resolve().parents[1]  # Tokenization/
 MODELS_DIR = ROOT / "models"
-OUT_DIR = ROOT.parent / "Darija_Tokenizers_HF"
+OUT_DIR = ROOT.parent / "DarijaDz_Tokenizers"
 
 VOCAB_SIZES = (1_000, 5_000, 10_000, 20_000, 30_000)
 

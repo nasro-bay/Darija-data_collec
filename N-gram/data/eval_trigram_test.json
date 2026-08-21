@@ -1,0 +1,26 @@
+{
+  "arabic": {
+    "docs": 1001,
+    "words": 12574,
+    "pieces": 17960,
+    "fertility": 1.4283442023222523,
+    "perplexity_per_word": 3986.4113170478026,
+    "oov_token_rate": 0.0
+  },
+  "latin": {
+    "docs": 1014,
+    "words": 9968,
+    "pieces": 20891,
+    "fertility": 2.09580658105939,
+    "perplexity_per_word": 19576.488721381218,
+    "oov_token_rate": 0.0
+  },
+  "mixed": {
+    "docs": 1000,
+    "words": 16873,
+    "pieces": 27612,
+    "fertility": 1.6364606175546732,
+    "perplexity_per_word": 4773.79228168685,
+    "oov_token_rate": 0.0
+  }
+}

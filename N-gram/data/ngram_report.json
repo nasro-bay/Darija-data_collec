@@ -1,0 +1,41 @@
+{
+  "tokenizer": {
+    "key": "unigram",
+    "vocab_size": 20000
+  },
+  "buckets": {
+    "arabic": {
+      "total_docs": 3716069,
+      "real_docs": 3102559,
+      "synthetic_docs": 613510,
+      "train_docs": 3714069,
+      "dev_docs": 1000,
+      "test_docs": 1000,
+      "train_fertility": 1.6216586829018635
+    },
+    "latin": {
+      "total_docs": 489003,
+      "real_docs": 489003,
+      "synthetic_docs": 0,
+      "train_docs": 487003,
+      "dev_docs": 1000,
+      "test_docs": 1000,
+      "train_fertility": 2.1312952931560623
+    },
+    "mixed": {
+      "total_docs": 798320,
+      "real_docs": 399160,
+      "synthetic_docs": 399160,
+      "train_docs": 796320,
+      "dev_docs": 1000,
+      "test_docs": 1000,
+      "train_fertility": 2.119706980680066
+    }
+  },
+  "overall_train_fertility": 1.7632196529660609,
+  "assumed_fertility_per_plan": 3.0,
+  "subword_order_for_word_ngram": {
+    "3": 6,
+    "4": 8
+  }
+}

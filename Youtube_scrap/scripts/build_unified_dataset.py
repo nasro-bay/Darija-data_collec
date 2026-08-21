@@ -2,9 +2,11 @@
 """Builds Data/youtube_corpus.jsonl (id + text only) from all processed
 YouTube batches, then shuffles it into Data/youtube_corpus_shuffled.jsonl
 (external chunk-shuffle -- doesn't need the whole corpus in RAM), then
-updates the numeric statistics already present in the DarijaDZ/,
-Kaggle_DarijaDz/, and Darija_Tokenizers_HF/ dataset/model-card README.md
-files to match.
+copies that shuffled file into the DarijaDZ/ and Kaggle_DarijaDz/ release
+folders (as youtube_corpus.jsonl -- the shuffled version is what actually
+gets published, not the raw build order), then updates the numeric
+statistics already present in the DarijaDZ/, Kaggle_DarijaDz/, and
+DarijaDz_Tokenizers/ dataset/model-card README.md files to match.
 
 One command now does what used to be two separate scripts
 (build_unified_dataset.py + shuffle_unified_dataset.py, the latter now
@@ -22,6 +24,7 @@ from __future__ import annotations
 import json
 import random
 import re
+import shutil
 from collections import Counter
 from pathlib import Path
 
@@ -30,7 +33,8 @@ PROCESSED_DIR = ROOT / "Youtube_scrap" / "data" / "processed"
 UNIFIED_PATH = ROOT / "Data" / "youtube_corpus.jsonl"
 SHUFFLED_PATH = ROOT / "Data" / "youtube_corpus_shuffled.jsonl"
 README_PATHS = [ROOT / "DarijaDZ" / "README.md", ROOT / "Kaggle_DarijaDz" / "README.md"]
-TOKENIZER_README_PATH = ROOT / "Darija_Tokenizers_HF" / "README.md"
+TOKENIZER_README_PATH = ROOT / "DarijaDz_Tokenizers" / "README.md"
+RELEASE_CORPUS_PATHS = [ROOT / "DarijaDZ" / "youtube_corpus.jsonl", ROOT / "Kaggle_DarijaDz" / "youtube_corpus.jsonl"]
 
 SHUFFLE_SEED = 42
 SHUFFLE_CHUNK_SIZE = 100_000
@@ -176,6 +180,20 @@ def shuffle_unified() -> None:
     print(f"Total documents: {total_count:,}")
 
 
+def sync_release_copies() -> None:
+    """Copies the shuffled corpus into the DarijaDZ/ and Kaggle_DarijaDz/
+    release folders as youtube_corpus.jsonl -- those folders previously
+    went stale relative to Data/ because nothing re-synced them after a
+    rebuild (caught manually once; this closes that gap for good). Always
+    overwrites from scratch, same as every other output this script
+    produces.
+    """
+    for dest in RELEASE_CORPUS_PATHS:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(SHUFFLED_PATH, dest)
+        print(f"  Synced {dest.relative_to(ROOT)}")
+
+
 def _sub_bold_number(text: str, label_pattern: str, value: str) -> str:
     """Replaces the bold `**number[%]**` that follows `label_pattern`
     (matched within the same line only -- `.` doesn't span newlines here),
@@ -225,7 +243,7 @@ def _sub_intro_prose(text: str, total_docs: int, total_tokens: int) -> str:
 
 
 def update_tokenizer_readme(stats: dict) -> None:
-    """Darija_Tokenizers_HF/README.md's "Training data" section states the
+    """DarijaDz_Tokenizers/README.md's "Training data" section states the
     YouTube corpus size as a rounded "~X.XXM Algerian YouTube comments"
     figure (not a table cell like the other READMEs, so it needs its own
     substitution pattern). Only that number is touched -- the adjacent
@@ -245,7 +263,7 @@ def update_tokenizer_readme(stats: dict) -> None:
     if n == 0:
         print(
             "  WARNING: pattern not found for '~X.XXM Algerian YouTube comments' "
-            "-- Darija_Tokenizers_HF/README.md left unchanged"
+            "-- DarijaDz_Tokenizers/README.md left unchanged"
         )
         return
 
@@ -307,6 +325,9 @@ def main() -> None:
 
     stats = build_unified(batch_files)
     shuffle_unified()
+
+    print("\nSyncing release copies...")
+    sync_release_copies()
 
     print("\nUpdating README statistics...")
     update_readmes(stats)
