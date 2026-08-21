@@ -65,6 +65,12 @@ DarijaDZ/*
 Kaggle_DarijaDz/*
 Kaggle.md
 
+# HF model-repo staging folder (same treatment as DarijaDZ/Kaggle_DarijaDz
+# above) -- large trained tokenizer artifacts (.model/.vocab/tokenizer.json
+# etc.), reproducible via Tokenization/scripts/build_hf_repo.py and
+# published via `hf upload`, not git.
+DarijaDz_Tokenizers/*
+
 # Benchmark datasets (Benchmarks/<name>/) -- downloaded/exported dataset
 # files ignored, same "data ignored, scripts/docs tracked" treatment as
 # Youtube_scrap/Mountada_djelfa_scrap above; each benchmark's own
