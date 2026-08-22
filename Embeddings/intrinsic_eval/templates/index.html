@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Darija Embedding Eval — Dataset Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+  <img class="logo" src="{{ url_for('static', filename='logo.png') }}" alt="DarijaDZ">
+  <h1>Darija Embedding Eval</h1>
+  <div class="flag-mark" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+      <path d="M14.5 3.5a8.5 8.5 0 1 0 0 17 8.7 8.7 0 0 1 0-17z"/>
+      <path d="m17.6 8.2.9 2.7h2.9l-2.3 1.7.9 2.7-2.4-1.7-2.3 1.7.9-2.7-2.4-1.7h2.9z"/>
+    </svg>
+  </div>
+</header>
+<div class="flag-strip"><span></span><span></span><span></span></div>
+
+<nav class="dataset-toggle" id="datasetToggle">
+  <button class="toggle-btn active" data-dataset="word_similarity">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>
+    Word Similarity
+  </button>
+  <button class="toggle-btn" data-dataset="analogy_pairs">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h13M13 3l4 4-4 4"/><path d="M20 17H7M11 13l-4 4 4 4"/></svg>
+    Analogies
+  </button>
+  <span class="toggle-slider"></span>
+</nav>
+
+<div class="toolbar">
+  <select id="categoryFilter">
+    <option value="">All categories</option>
+  </select>
+  <span class="count-badge" id="countBadge">0 entries</span>
+  <button class="add-btn" id="openAddBtn">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+    Add entry
+  </button>
+</div>
+
+<main id="cardGrid" class="card-grid"></main>
+
+<div class="empty-state" id="emptyState" style="display:none">
+  <p>No entries in this category yet — add the first one.</p>
+</div>
+
+<!-- Add / edit panel -->
+<div class="overlay" id="overlay"></div>
+<div class="add-panel" id="addPanel">
+  <h2 id="addPanelTitle">Add word-similarity pair</h2>
+
+  <form id="addForm">
+    <div class="field-row" id="similarityFields">
+      <label>Word 1 <input type="text" name="word1" dir="auto"></label>
+      <label>Word 2 <input type="text" name="word2" dir="auto"></label>
+    </div>
+    <div class="field-row" id="analogyFields" style="display:none">
+      <label>Word A <input type="text" name="word_a" dir="auto"></label>
+      <label>Word B <input type="text" name="word_b" dir="auto"></label>
+    </div>
+
+    <label>Category
+      <select name="category" id="categorySelect"></select>
+    </label>
+
+    <label id="scoreField">Similarity score (0.00 – 1.00)
+      <div class="score-input-row">
+        <input type="range" name="score_range" min="0" max="1" step="0.01" value="0.5">
+        <input type="number" name="score" min="0" max="1" step="0.01" value="0.50">
+      </div>
+    </label>
+
+    <label>Note <small>(what grounds this pair/score)</small>
+      <input type="text" name="note" placeholder="e.g. confirmed in corpus sample">
+    </label>
+
+    <div class="form-actions">
+      <button type="button" class="cancel-btn" id="cancelAddBtn">Cancel</button>
+      <button type="submit" class="submit-btn" id="submitBtn">Save entry</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  window.SIMILARITY_CATEGORIES = {{ similarity_categories | tojson }};
+  window.ANALOGY_CATEGORIES = {{ analogy_categories | tojson }};
+</script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
