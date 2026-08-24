@@ -10,6 +10,18 @@
 torch          # CUDA build already present in the ai-gpu venv (2.11.0+cu128)
 tokenizers     # BPE tokenizer loading (Tokenization/tokenizer_utils.py)
 sentencepiece  # required by tokenizer_utils.py even for the bpe path (shared module import)
-scikit-learn   # KMeans length clustering
+scikit-learn   # KMeans length clustering; TSNE for word2vec_eval.ipynb
 numpy
 tqdm
+
+# word2vec_eval.ipynb (embedding exploration: t-SNE, nearest neighbors,
+# intrinsic eval) -- installed into the ai-gpu venv, not in it originally:
+matplotlib
+arabic-reshaper  # Arabic text shaping for matplotlib labels
+python-bidi      # bidi reordering, same pair used in Tokenization/tokenization_eval.ipynb
+ipykernel        # run the notebook via the ai-gpu venv's kernel
+scipy            # evaluate_embeddings.py's spearmanr (already present in ai-gpu venv)
+adjustText       # t-SNE label-collision avoidance -- ~600 labeled points overlap badly without it
+
+# app.py (Gradio nearest-neighbor web app):
+gradio
