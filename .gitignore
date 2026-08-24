@@ -39,6 +39,10 @@ CLAUDE.md
 AGENTS.md
 **/PLAN.md
 N-gram/plan.md
+Embeddings/intrinsic_eval/plan.md
+Embeddings/intrinsic_eval/guide.md
+Embeddings/word2vec/plan.md
+Embeddings/word2vec/guide.md
 Youtube_scrap/youtube_scrap.md
 Mountada_djelfa_scrap/djelfa_scrap.md
 
@@ -101,6 +105,14 @@ N-gram/models/*
 !N-gram/models/.gitkeep
 !N-gram/data/*_report.json
 !N-gram/data/eval_*.json
+
+# CBOW+attention word embedding model: prepared training cache and
+# checkpoints -- large and reproducible via Embeddings/word2vec/scripts/*.py,
+# same treatment as N-gram/ above.
+Embeddings/word2vec/data/*
+Embeddings/word2vec/models/*
+!Embeddings/word2vec/data/.gitkeep
+!Embeddings/word2vec/models/.gitkeep
 
 pytest.ini
 

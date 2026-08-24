@@ -1,0 +1,15 @@
+# Run everything in this folder via the existing GPU-enabled venv, not
+# the base environment (which has CPU-only torch and no matching CUDA
+# build available for its version):
+#
+#   "C:\Users\ASUS\Desktop\summer 2026\deep learning\labs\training neural networks\ai-gpu\Scripts\python.exe" scripts\...
+#
+# That venv already has everything below installed. This file documents
+# the dependency list, not something to pip-install fresh.
+
+torch          # CUDA build already present in the ai-gpu venv (2.11.0+cu128)
+tokenizers     # BPE tokenizer loading (Tokenization/tokenizer_utils.py)
+sentencepiece  # required by tokenizer_utils.py even for the bpe path (shared module import)
+scikit-learn   # KMeans length clustering
+numpy
+tqdm

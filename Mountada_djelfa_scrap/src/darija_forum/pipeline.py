@@ -8,6 +8,14 @@ up front. Cleaning runs before dedup so boilerplate variation (quote
 wrappers, BBCode, tatweel, etc.) doesn't hide near-duplicates from each
 other — e.g. two reposts quoting different users but with identical reply
 text look distinct pre-cleaning, identical post-cleaning.
+
+Cleaning + MinHash computation are parallelized across a process pool
+(one process per CPU core by default), same rationale and the same
+sequential-LSH-check caveat as Youtube_scrap's pipeline.py: both are pure,
+per-post, CPU-bound operations with no shared state, but the near-dup LSH
+check mutates a single shared index and must stay sequential, in the raw
+file's original order, to keep dedup results identical to the
+pre-parallelization pipeline.
 """
 from __future__ import annotations
 
@@ -15,6 +23,7 @@ import json
 import os
 from collections import Counter
 from datetime import date, datetime, timezone
+from multiprocessing import Pool
 from pathlib import Path
 
 from . import clean_text, dedup, schema
@@ -25,6 +34,16 @@ from .state import State
 # killed process can lose, without the overhead of saving it after every
 # single file.
 LSH_SAVE_INTERVAL = 200
+
+
+def _clean_and_hash(text: str) -> tuple[str | None, "dedup.MinHash | None"]:
+    """Worker-process entry point (must be a module-level function so it's
+    picklable for multiprocessing, including Windows' spawn start method).
+    """
+    cleaned = clean_text.clean(text)
+    if cleaned is None:
+        return None, None
+    return cleaned, dedup.text_to_minhash(cleaned)
 
 
 def _append_log(log_path: Path, run_entry: dict) -> None:
@@ -61,7 +80,13 @@ def _append_log(log_path: Path, run_entry: dict) -> None:
 
 
 def run_pipeline(
-    *, raw_dir: Path, processed_dir: Path, state: State, lsh_path: Path, log_path: Path
+    *,
+    raw_dir: Path,
+    processed_dir: Path,
+    state: State,
+    lsh_path: Path,
+    log_path: Path,
+    workers: int | None = None,
 ) -> dict:
     raw_files = sorted(
         p for p in raw_dir.rglob("*.jsonl")
@@ -80,29 +105,41 @@ def run_pipeline(
     processed_dir.mkdir(parents=True, exist_ok=True)
     processed_path = processed_dir / f"batch_{today}.jsonl"
 
-    for i, raw_file in enumerate(raw_files):
-        lines_out = []
-        with raw_file.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                post = json.loads(line)
-                posts_collected += 1
+    num_workers = workers if workers is not None else (os.cpu_count() or 1)
+
+    with Pool(processes=num_workers) as pool:
+        for i, raw_file in enumerate(raw_files):
+            posts = []
+            with raw_file.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    posts.append(json.loads(line))
+
+            posts_collected += len(posts)
+            for post in posts:
                 by_subforum[post["subforum_id"]] += 1
-                cleaned = clean_text.clean(post["text"])
+
+            # Cleaning + MinHash computation happen in parallel across
+            # `pool`; imap (not imap_unordered) preserves input order so
+            # results line up positionally with `posts` below.
+            texts = [p["text"] for p in posts]
+            chunksize = max(1, len(texts) // (num_workers * 4)) if texts else 1
+            results = pool.imap(_clean_and_hash, texts, chunksize=chunksize)
+
+            lines_out = []
+            for post, (cleaned, minhash) in zip(posts, results):
                 if cleaned is None:
                     posts_dropped_empty += 1
                     by_subforum_dropped[post["subforum_id"]] += 1
                     continue
-                text = cleaned
-                minhash = dedup.text_to_minhash(text)
                 doc_id = f"djelfa_{post['post_id']}"
                 if dedup.is_near_duplicate(lsh, doc_id, minhash):
                     continue
                 doc = schema.build_document(
                     doc_id=doc_id,
-                    text=text,
+                    text=cleaned,
                     subforum=post["subforum_id"],
                     thread_title=post["thread_title"],
                     thread_url=post["thread_url"],
@@ -115,27 +152,27 @@ def run_pipeline(
                 posts_retained += 1
                 by_subforum_retained[post["subforum_id"]] += 1
 
-        # Open, write, and durably flush per raw file — guarantees that by
-        # the time a file is marked "processed" (below), its output is
-        # actually on disk. A single file handle kept open across the
-        # whole run (the old approach) let a killed process lose already
-        # -"processed" files' output silently, since state.json's
-        # atomic-replace saves are durable but a plain buffered write
-        # isn't until flushed/closed — confirmed: one interrupted run
-        # lost ~44,700 of ~51,000 claimed-retained posts this way, with
-        # nothing in state.json to reveal it had happened.
-        if lines_out:
-            with processed_path.open("a", encoding="utf-8") as out:
-                for line in lines_out:
-                    out.write(line + "\n")
-                out.flush()
-                os.fsync(out.fileno())
+            # Open, write, and durably flush per raw file — guarantees that by
+            # the time a file is marked "processed" (below), its output is
+            # actually on disk. A single file handle kept open across the
+            # whole run (the old approach) let a killed process lose already
+            # -"processed" files' output silently, since state.json's
+            # atomic-replace saves are durable but a plain buffered write
+            # isn't until flushed/closed — confirmed: one interrupted run
+            # lost ~44,700 of ~51,000 claimed-retained posts this way, with
+            # nothing in state.json to reveal it had happened.
+            if lines_out:
+                with processed_path.open("a", encoding="utf-8") as out:
+                    for line in lines_out:
+                        out.write(line + "\n")
+                    out.flush()
+                    os.fsync(out.fileno())
 
-        state.mark_raw_file_processed(raw_file.relative_to(raw_dir).as_posix())
-        state.save()
+            state.mark_raw_file_processed(raw_file.relative_to(raw_dir).as_posix())
+            state.save()
 
-        if (i + 1) % LSH_SAVE_INTERVAL == 0:
-            dedup.save_lsh(lsh, lsh_path)
+            if (i + 1) % LSH_SAVE_INTERVAL == 0:
+                dedup.save_lsh(lsh, lsh_path)
 
     dedup.save_lsh(lsh, lsh_path)
 

@@ -131,11 +131,25 @@ function switchDataset(dataset) {
   analogyFields.style.display = dataset === "analogy_pairs" ? "flex" : "none";
   populateCategoryDropdowns();
   loadData();
+  positionToggleSlider();
+}
+
+const toggleSlider = document.querySelector(".toggle-slider");
+
+function positionToggleSlider() {
+  const activeBtn = toggle.querySelector(".toggle-btn.active");
+  if (!activeBtn) return;
+  // Measure the active button's actual rendered position/size relative
+  // to the container -- correct regardless of padding/gap/text-width,
+  // unlike a hand-computed 50% CSS split.
+  toggleSlider.style.left = `${activeBtn.offsetLeft}px`;
+  toggleSlider.style.width = `${activeBtn.offsetWidth}px`;
 }
 
 toggle.querySelectorAll(".toggle-btn").forEach((btn) => {
   btn.addEventListener("click", () => switchDataset(btn.dataset.dataset));
 });
+window.addEventListener("resize", positionToggleSlider);
 
 categoryFilter.addEventListener("change", renderCards);
 
@@ -228,3 +242,10 @@ addForm.addEventListener("submit", async (e) => {
 
 populateCategoryDropdowns();
 loadData();
+// Fonts/layout may still be settling on first paint -- position once
+// immediately, then again after fonts finish loading so the slider
+// lines up with the button's final rendered width.
+positionToggleSlider();
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(positionToggleSlider);
+}

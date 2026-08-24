@@ -138,22 +138,26 @@ body {
   font-weight: 600;
 }
 .add-btn {
-  margin-left: auto;
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   background: var(--dz-green);
   color: white;
   border: none;
-  padding: 9px 18px;
+  padding: 13px 22px;
   border-radius: var(--radius-control);
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  box-shadow: 0 6px 18px rgba(4, 102, 58, 0.35);
+  transition: background-color 0.15s ease, transform 0.15s ease;
+  z-index: 4;
 }
-.add-btn:hover { background: #054d2c; }
+.add-btn:hover { background: #054d2c; transform: translateY(-2px); }
 
 /* --- card grid --- */
 .card-grid {

@@ -1,43 +1,33 @@
 {"word1": "بزاف", "word2": "كثير", "category": "synonym", "score": 0.85, "note": "'a lot' -- dialectal vs MSA-leaning"}
 {"word1": "خدمة", "word2": "شغل", "category": "synonym", "score": 0.85, "note": "work/job"}
-{"word1": "توا", "word2": "الآن", "category": "synonym", "score": 0.8, "note": "now -- dialectal vs MSA"}
 {"word1": "بصح", "word2": "لكن", "category": "synonym", "score": 0.85, "note": "but"}
-{"word1": "زعمة", "word2": "يعني", "category": "synonym", "score": 0.8, "note": "meaning/like"}
+{"word1": "زعم", "word2": "كي شغل", "category": "synonym", "score": 0.8, "note": "meaning/like"}
 {"word1": "نتا", "word2": "أنت", "category": "synonym", "score": 0.85, "note": "you (masc.) -- dialectal form"}
-{"word1": "هاذ", "word2": "هذا", "category": "synonym", "score": 0.9, "note": "this"}
 {"word1": "كيفاش", "word2": "كيف", "category": "synonym", "score": 0.85, "note": "how"}
-{"word1": "فرحان", "word2": "مبسوط", "category": "synonym", "score": 0.85, "note": "happy"}
-{"word1": "خايف", "word2": "مرعوب", "category": "synonym", "score": 0.7, "note": "scared vs terrified -- near-synonym, different intensity"}
 {"word1": "غالي", "word2": "ثمين", "category": "synonym", "score": 0.7, "note": "expensive/precious"}
-{"word1": "زين", "word2": "جميل", "category": "synonym", "score": 0.85, "note": "beautiful"}
-{"word1": "حاجة", "word2": "شي", "category": "synonym", "score": 0.75, "note": "thing/something"}
-{"word1": "دغيا", "word2": "بسرعة", "category": "synonym", "score": 0.85, "note": "quickly"}
-{"word1": "راهو", "word2": "هو", "category": "synonym", "score": 0.7, "note": "he is/he"}
+{"word1": "شباب", "word2": "جميل", "category": "synonym", "score": 0.85, "note": "beautiful"}
+{"word1": "حاجة", "word2": "شيئ", "category": "synonym", "score": 0.75, "note": "thing/something"}
+{"word1": "بلخف", "word2": "بسرعة", "category": "synonym", "score": 0.85, "note": "quickly"}
 {"word1": "نعرف", "word2": "نعلم", "category": "synonym", "score": 0.85, "note": "I know"}
 {"word1": "كبير", "word2": "عظيم", "category": "synonym", "score": 0.65, "note": "big/great -- overlapping but not identical sense"}
 {"word1": "مليح", "word2": "حسن", "category": "synonym", "score": 0.8, "note": "good"}
-{"word1": "راني", "word2": "أنا", "category": "synonym", "score": 0.7, "note": "I am/I -- 'rani' carries present-continuous nuance"}
 {"word1": "وقتاش", "word2": "متى", "category": "synonym", "score": 0.85, "note": "when"}
-{"word1": "علاش", "word2": "لماذا", "category": "synonym", "score": 0.85, "note": "why"}
 {"word1": "يجي", "word2": "يأتي", "category": "synonym", "score": 0.85, "note": "to come"}
 {"word1": "رواح", "word2": "تعال", "category": "synonym", "score": 0.8, "note": "come!"}
-{"word1": "سير", "word2": "اذهب", "category": "synonym", "score": 0.8, "note": "go!"}
+{"word1": "روح", "word2": "اذهب", "category": "synonym", "score": 0.8, "note": "go!"}
 {"word1": "بابا", "word2": "الوالد", "category": "synonym", "score": 0.75, "note": "dad/father"}
-{"word1": "يما", "word2": "الوالدة", "category": "synonym", "score": 0.75, "note": "mom/mother"}
-{"word1": "حوايج", "word2": "أشياء", "category": "synonym", "score": 0.8, "note": "things/stuff"}
-{"word1": "فلوس", "word2": "نقود", "category": "synonym", "score": 0.85, "note": "money"}
+{"word1": "ماما", "word2": "الوالدة", "category": "synonym", "score": 0.75, "note": "mom/mother"}
+{"word1": "عفايس", "word2": "أشياء", "category": "synonym", "score": 0.8, "note": "things/stuff"}
+{"word1": "دراهم", "word2": "نقود", "category": "synonym", "score": 0.85, "note": "money"}
 {"word1": "خدام", "word2": "عامل", "category": "synonym", "score": 0.85, "note": "worker"}
-{"word1": "راكي", "word2": "انتي", "category": "synonym", "score": 0.75, "note": "you (fem.) -- dialectal form"}
 {"word1": "وليدي", "word2": "ابني", "category": "synonym", "score": 0.8, "note": "my son"}
-{"word1": "بنتي", "word2": "ابنتي", "category": "synonym", "score": 0.85, "note": "my daughter"}
 {"word1": "عجبني", "word2": "أعجبني", "category": "synonym", "score": 0.9, "note": "I liked it"}
 {"word1": "هدرة", "word2": "كلام", "category": "synonym", "score": 0.85, "note": "talk/speech"}
 {"word1": "يهدر", "word2": "يتكلم", "category": "synonym", "score": 0.85, "note": "to talk/speak -- dialectal vs MSA verb"}
 {"word1": "بغيت", "word2": "حبيت", "category": "synonym", "score": 0.85, "note": "I wanted/I liked -- both used for 'want' in Darija"}
 {"word1": "دار", "word2": "بيت", "category": "synonym", "score": 0.75, "note": "house -- 'dar' dominant Darija term"}
-{"word1": "صغير", "word2": "زغير", "category": "synonym", "score": 0.9, "note": "small -- phonetic dialectal variant of the same word"}
 {"word1": "قاعد", "word2": "جالس", "category": "synonym", "score": 0.8, "note": "sitting"}
-{"word1": "راقد", "word2": "نايم", "category": "synonym", "score": 0.85, "note": "sleeping/lying down"}
+{"word1": "راقد", "word2": "نائم", "category": "synonym", "score": 0.85, "note": "sleeping/lying down"}
 {"word1": "يخدم", "word2": "يعمل", "category": "synonym", "score": 0.85, "note": "to work"}
 {"word1": "كبير", "word2": "صغير", "category": "antonym", "score": 0.15, "note": "big/small"}
 {"word1": "طويل", "word2": "قصير", "category": "antonym", "score": 0.15, "note": "tall/short"}
@@ -46,8 +36,7 @@
 {"word1": "فرحان", "word2": "حزين", "category": "antonym", "score": 0.15, "note": "happy/sad"}
 {"word1": "جديد", "word2": "قديم", "category": "antonym", "score": 0.15, "note": "new/old"}
 {"word1": "بعيد", "word2": "قريب", "category": "antonym", "score": 0.15, "note": "far/near"}
-{"word1": "زين", "word2": "خايب", "category": "antonym", "score": 0.15, "note": "beautiful/ugly"}
-{"word1": "مليح", "word2": "خايب", "category": "antonym", "score": 0.15, "note": "good/bad"}
+{"word1": "شباب", "word2": "مشي مليح", "category": "antonym", "score": 0.15, "note": "beautiful/ugly"}
 {"word1": "نهار", "word2": "ليل", "category": "antonym", "score": 0.1, "note": "day/night"}
 {"word1": "فوق", "word2": "تحت", "category": "antonym", "score": 0.1, "note": "up/down"}
 {"word1": "داخل", "word2": "خارج", "category": "antonym", "score": 0.1, "note": "inside/outside"}
@@ -55,16 +44,16 @@
 {"word1": "سهل", "word2": "صعيب", "category": "antonym", "score": 0.15, "note": "easy/difficult"}
 {"word1": "قوي", "word2": "ضعيف", "category": "antonym", "score": 0.15, "note": "strong/weak"}
 {"word1": "واسع", "word2": "ضيق", "category": "antonym", "score": 0.15, "note": "wide/narrow"}
-{"word1": "نظيف", "word2": "موسخ", "category": "antonym", "score": 0.15, "note": "clean/dirty"}
+{"word1": "نقي", "word2": "موسخ", "category": "antonym", "score": 0.15, "note": "clean/dirty"}
 {"word1": "سريع", "word2": "بطيء", "category": "antonym", "score": 0.15, "note": "fast/slow"}
 {"word1": "حلو", "word2": "مر", "category": "antonym", "score": 0.15, "note": "sweet/bitter"}
-{"word1": "أبيض", "word2": "أكحل", "category": "antonym", "score": 0.1, "note": "white/black"}
-{"word1": "مفتوح", "word2": "مسكر", "category": "antonym", "score": 0.15, "note": "open/closed"}
-{"word1": "غني", "word2": "فقير", "category": "antonym", "score": 0.15, "note": "rich/poor"}
-{"word1": "راضي", "word2": "غاضب", "category": "antonym", "score": 0.15, "note": "satisfied/angry"}
+{"word1": "بيض", "word2": "كحل", "category": "antonym", "score": 0.1, "note": "white/black"}
+{"word1": "مفتوح", "word2": "مبلع", "category": "antonym", "score": 0.15, "note": "open/closed"}
+{"word1": "بدراهمو", "word2": "فقير", "category": "antonym", "score": 0.15, "note": "rich/poor"}
+{"word1": "راضي", "word2": "زعفان", "category": "antonym", "score": 0.15, "note": "satisfied/angry"}
 {"word1": "حي", "word2": "ميت", "category": "antonym", "score": 0.05, "note": "alive/dead"}
-{"word1": "أول", "word2": "آخر", "category": "antonym", "score": 0.1, "note": "first/last"}
-{"word1": "طالع", "word2": "نازل", "category": "antonym", "score": 0.15, "note": "going up/going down"}
+{"word1": "لول", "word2": "تالي", "category": "antonym", "score": 0.1, "note": "first/last"}
+{"word1": "طالع", "word2": "هابط", "category": "antonym", "score": 0.15, "note": "going up/going down"}
 {"word1": "يبيع", "word2": "يشري", "category": "antonym", "score": 0.15, "note": "to sell/to buy"}
 {"word1": "يدخل", "word2": "يخرج", "category": "antonym", "score": 0.15, "note": "to enter/to exit"}
 {"word1": "يحب", "word2": "يكره", "category": "antonym", "score": 0.1, "note": "to love/to hate"}
@@ -110,7 +99,6 @@
 {"word1": "برك", "word2": "berk", "category": "cross_script", "score": 0.85, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
 {"word1": "غدوة", "word2": "ghdawa", "category": "cross_script", "score": 0.85, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
 {"word1": "البارح", "word2": "lbare7", "category": "cross_script", "score": 0.85, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
-{"word1": "توا", "word2": "tawa", "category": "cross_script", "score": 0.9, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
 {"word1": "راهم", "word2": "rahom", "category": "cross_script", "score": 0.85, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
 {"word1": "عندك", "word2": "3andek", "category": "cross_script", "score": 0.9, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
 {"word1": "كون", "word2": "koun", "category": "cross_script", "score": 0.8, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
@@ -119,7 +107,6 @@
 {"word1": "قاعد", "word2": "9a3ed", "category": "cross_script", "score": 0.9, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
 {"word1": "راقد", "word2": "raqed", "category": "cross_script", "score": 0.85, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
 {"word1": "والو", "word2": "walou", "category": "cross_script", "score": 0.9, "note": "'nothing at all'"}
-{"word1": "بزربة", "word2": "bezerba", "category": "cross_script", "score": 0.85, "note": "in a hurry"}
 {"word1": "automobile", "word2": "طوموبيل", "category": "code_switch", "score": 0.9, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
 {"word1": "piscine", "word2": "بيسين", "category": "code_switch", "score": 0.9, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
 {"word1": "table", "word2": "طابلة", "category": "code_switch", "score": 0.9, "note": "well-attested Algerian Darija usage (analyst knowledge)"}
@@ -155,9 +142,9 @@
 {"word1": "كبير", "word2": "كبيرة", "category": "morphological_variant", "score": 0.85, "note": "big masc/fem"}
 {"word1": "صغير", "word2": "صغيرة", "category": "morphological_variant", "score": 0.85, "note": "small masc/fem"}
 {"word1": "مليح", "word2": "مليحة", "category": "morphological_variant", "score": 0.85, "note": "good masc/fem"}
-{"word1": "زين", "word2": "زينة", "category": "morphological_variant", "score": 0.85, "note": "beautiful masc/fem"}
+{"word1": "شباب", "word2": "شابة", "category": "morphological_variant", "score": 0.85, "note": "beautiful masc/fem"}
 {"word1": "طويل", "word2": "طويلة", "category": "morphological_variant", "score": 0.85, "note": "tall masc/fem"}
-{"word1": "كتاب", "word2": "كتب", "category": "morphological_variant", "score": 0.8, "note": "book/books"}
+{"word1": "كتاب", "word2": "كتوبة", "category": "morphological_variant", "score": 0.8, "note": "book/books"}
 {"word1": "دار", "word2": "ديار", "category": "morphological_variant", "score": 0.8, "note": "house/houses"}
 {"word1": "مدينة", "word2": "مدن", "category": "morphological_variant", "score": 0.75, "note": "city/cities"}
 {"word1": "معلم", "word2": "معلمة", "category": "morphological_variant", "score": 0.85, "note": "teacher masc/fem"}
@@ -168,15 +155,15 @@
 {"word1": "فرحان", "word2": "فرحانة", "category": "morphological_variant", "score": 0.85, "note": "happy masc/fem"}
 {"word1": "حزين", "word2": "حزينة", "category": "morphological_variant", "score": 0.85, "note": "sad masc/fem"}
 {"word1": "غالي", "word2": "غالية", "category": "morphological_variant", "score": 0.85, "note": "expensive masc/fem"}
-{"word1": "جميل", "word2": "جميلة", "category": "morphological_variant", "score": 0.85, "note": "beautiful masc/fem"}
-{"word1": "سيارة", "word2": "سيارات", "category": "morphological_variant", "score": 0.8, "note": "car/cars"}
-{"word1": "مفتاح", "word2": "مفاتيح", "category": "morphological_variant", "score": 0.8, "note": "key/keys"}
-{"word1": "صديق", "word2": "أصدقاء", "category": "morphological_variant", "score": 0.75, "note": "friend/friends"}
-{"word1": "أستاذ", "word2": "أساتذة", "category": "morphological_variant", "score": 0.75, "note": "teacher/teachers"}
+{"word1": "شباب", "word2": "شابة", "category": "morphological_variant", "score": 0.85, "note": "beautiful masc/fem"}
+{"word1": "طونوبيل", "word2": "طونوبيلات", "category": "morphological_variant", "score": 0.8, "note": "car/cars"}
+{"word1": "مفتاح", "word2": "مفاتح", "category": "morphological_variant", "score": 0.8, "note": "key/keys"}
+{"word1": "صحاب", "word2": "صحاب", "category": "morphological_variant", "score": 0.75, "note": "friend/friends"}
+{"word1": "شيخ", "word2": "شيخة", "category": "morphological_variant", "score": 0.75, "note": "teacher/teachers"}
 {"word1": "تلميذ", "word2": "تلاميذ", "category": "morphological_variant", "score": 0.75, "note": "pupil/pupils"}
-{"word1": "طفل", "word2": "أطفال", "category": "morphological_variant", "score": 0.75, "note": "child/children"}
+{"word1": "ذري", "word2": "ذراري", "category": "morphological_variant", "score": 0.75, "note": "child/children"}
 {"word1": "رجل", "word2": "رجال", "category": "morphological_variant", "score": 0.75, "note": "man/men"}
-{"word1": "امرأة", "word2": "نساء", "category": "morphological_variant", "score": 0.75, "note": "woman/women"}
+{"word1": "مرا", "word2": "نسا", "category": "morphological_variant", "score": 0.75, "note": "woman/women"}
 {"word1": "جميل", "word2": "جميلين", "category": "morphological_variant", "score": 0.8, "note": "beautiful sing/plural"}
 {"word1": "كبير", "word2": "كبار", "category": "morphological_variant", "score": 0.75, "note": "big sing/plural (people)"}
 {"word1": "يكتب", "word2": "يكتبوا", "category": "morphological_variant", "score": 0.75, "note": "he writes/they write"}

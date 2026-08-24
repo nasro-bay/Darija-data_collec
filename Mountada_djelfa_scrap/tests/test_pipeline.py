@@ -52,12 +52,18 @@ class PipelineTests(unittest.TestCase):
         self.tmpdir.cleanup()
 
     def _run(self):
+        # workers=1: these fixtures are a handful of posts each, so
+        # process-pool spawn overhead would dominate; single-worker keeps
+        # tests fast without exercising a different code path (imap with
+        # chunksize=1 over a single worker still runs through the same
+        # _clean_and_hash function real runs use).
         return run_pipeline(
             raw_dir=self.raw_dir,
             processed_dir=self.processed_dir,
             state=self.state,
             lsh_path=self.lsh_path,
             log_path=self.log_path,
+            workers=1,
         )
 
     def test_dedupes_and_builds_nested_schema(self):
