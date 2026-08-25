@@ -1,0 +1,21 @@
+# Run everything in this folder via the existing GPU-enabled venv, not a
+# fresh one (plan.md's step 2 creates a new venv -- skipped here, this
+# project already has one with CUDA torch/transformers/accelerate/
+# huggingface_hub preinstalled):
+#
+#   "C:\Users\ASUS\Desktop\summer 2026\deep learning\labs\training networks\ai-gpu\Scripts\python.exe" load_model.py
+#
+# Only bitsandbytes was missing and got installed into that same venv.
+# This file documents the dependency list, not something to pip-install fresh.
+
+torch              # CUDA build already present in the ai-gpu venv (2.11.0+cu128)
+transformers       # already present (5.14.1)
+accelerate         # already present (1.14.0) -- device_map="auto"
+huggingface_hub    # already present (1.23.0) -- already logged in (whoami confirmed)
+bitsandbytes       # installed this session (0.50.1) -- 4-bit NF4 quantization
+sentencepiece      # tokenizer dependency
+pillow             # AutoProcessor's image path for Qwen3.5-4B (multimodal) -- already present
+
+# app.py (Gradio chat web UI) -- already present in the ai-gpu venv from
+# Embeddings/word2vec/app.py's earlier setup:
+gradio
