@@ -1,21 +1,22 @@
 """Runs newly-scraped raw comments through clean_text.clean() (dropping
-near-empty results), then near-dup dedup on the *cleaned* text, and writes
-the schema-conformant corpus — appending one entry to the single global
-JSON log (data/logs/log.json) per run. Cleaning runs before dedup so
-noise variation (URLs, elongated letters, punctuation runs, etc.) doesn't
-hide near-duplicates from each other.
+near-empty results) and writes the schema-conformant corpus -- appending
+one entry to the single global JSON log (data/logs/log.json) per run.
+
+Near-dup dedup (dedup.py, MinHash/LSH) is NOT run here -- disabled because
+the sequential LSH query/insert per comment (see dedup.py's docstring) was
+the pipeline's dominant cost at this corpus's scale, and deduped-out rows
+may be wanted later for training (e.g. weighting/repetition signal)
+instead of being discarded. dedup.py is otherwise untouched and still
+fully usable as a standalone pass over data/processed/*.jsonl whenever
+dedup is wanted again -- see its module docstring. MinHash is still
+computed per retained comment (cheap, parallelized alongside cleaning)
+and stored as `dedup_hash` in the schema, so a future dedup pass can reuse
+it without recomputing.
 
 Cleaning + MinHash computation are parallelized across a process pool
 (one process per CPU core by default) -- both are pure, per-comment,
 CPU-bound operations with no shared state, so every comment in a raw
-file's batch can be handled independently. The near-dup LSH check
-(dedup.is_near_duplicate) is deliberately NOT parallelized: it mutates a
-single shared index, and a comment's dedup outcome depends on exactly
-what's already been inserted before it, so it stays sequential in the
-main process, walked in the raw file's original order -- this keeps
-dedup results identical to the pre-parallelization single-threaded
-pipeline, just with the CPU-bound cleaning/hashing work spread across
-cores ahead of it.
+file's batch can be handled independently.
 """
 from __future__ import annotations
 
@@ -69,12 +70,12 @@ def run_pipeline(
     raw_dir: Path,
     processed_dir: Path,
     state: State,
-    lsh_path: Path,
+    lsh_path: Path,  # unused -- dedup is disabled, see module docstring; kept so
+                      # callers don't need updating if dedup is re-enabled later
     log_path: Path,
     workers: int | None = None,
 ) -> dict:
     raw_files = sorted(p for p in raw_dir.glob("*.jsonl") if not state.is_raw_file_processed(p.name))
-    lsh = dedup.load_lsh(lsh_path)
 
     comments_collected = 0
     comments_dropped_empty = 0
@@ -110,8 +111,6 @@ def run_pipeline(
                     comments_dropped_empty += 1
                     continue
                 doc_id = f"yt_{comment['video_id']}_{comment['comment_id']}"
-                if dedup.is_near_duplicate(lsh, doc_id, minhash):
-                    continue
                 doc = schema.build_document(
                     doc_id=doc_id,
                     text=cleaned,
@@ -126,8 +125,6 @@ def run_pipeline(
 
             state.mark_raw_file_processed(raw_file.name)
             state.save()
-
-    dedup.save_lsh(lsh, lsh_path)
 
     run_entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),

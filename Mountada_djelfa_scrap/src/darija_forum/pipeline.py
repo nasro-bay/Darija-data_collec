@@ -1,21 +1,25 @@
 """Runs newly-scraped raw posts through clean_text.clean() (dropping
-near-empty results), then near-dup dedup on the *cleaned* text, and writes
-the schema-conformant corpus, appending one entry to the single global
-JSON log (data/logs/log.json) per run — including a per-subforum breakdown
-of retained posts, per this source's explicit deliverable (see PLAN.md):
-seeing empirically which sections turned out Darija-dense, not assumed
-up front. Cleaning runs before dedup so boilerplate variation (quote
-wrappers, BBCode, tatweel, etc.) doesn't hide near-duplicates from each
-other — e.g. two reposts quoting different users but with identical reply
-text look distinct pre-cleaning, identical post-cleaning.
+near-empty results) and writes the schema-conformant corpus, appending one
+entry to the single global JSON log (data/logs/log.json) per run —
+including a per-subforum breakdown of retained posts, per this source's
+explicit deliverable (see PLAN.md): seeing empirically which sections
+turned out Darija-dense, not assumed up front.
+
+Near-dup dedup (dedup.py, MinHash/LSH) is NOT run here -- disabled because
+the sequential LSH query/insert per post (see dedup.py's docstring) was
+the pipeline's dominant cost at this corpus's scale, and deduped-out rows
+may be wanted later for training (e.g. weighting/repetition signal)
+instead of being discarded. dedup.py is otherwise untouched and still
+fully usable as a standalone pass over data/processed/*.jsonl whenever
+dedup is wanted again -- see its module docstring. MinHash is still
+computed per retained post (cheap, parallelized alongside cleaning) and
+stored as `dedup_hash` in the schema, so a future dedup pass can reuse it
+without recomputing.
 
 Cleaning + MinHash computation are parallelized across a process pool
-(one process per CPU core by default), same rationale and the same
-sequential-LSH-check caveat as Youtube_scrap's pipeline.py: both are pure,
-per-post, CPU-bound operations with no shared state, but the near-dup LSH
-check mutates a single shared index and must stay sequential, in the raw
-file's original order, to keep dedup results identical to the
-pre-parallelization pipeline.
+(one process per CPU core by default), same rationale as Youtube_scrap's
+pipeline.py: both are pure, per-post, CPU-bound operations with no shared
+state.
 """
 from __future__ import annotations
 
@@ -28,12 +32,6 @@ from pathlib import Path
 
 from . import clean_text, dedup, schema
 from .state import State
-
-# How often (in raw files) to persist the MinHash LSH index mid-run, in
-# addition to always saving it at the end. Bounds how much dedup state a
-# killed process can lose, without the overhead of saving it after every
-# single file.
-LSH_SAVE_INTERVAL = 200
 
 
 def _clean_and_hash(text: str) -> tuple[str | None, "dedup.MinHash | None"]:
@@ -84,7 +82,8 @@ def run_pipeline(
     raw_dir: Path,
     processed_dir: Path,
     state: State,
-    lsh_path: Path,
+    lsh_path: Path,  # unused -- dedup is disabled, see module docstring; kept so
+                      # callers don't need updating if dedup is re-enabled later
     log_path: Path,
     workers: int | None = None,
 ) -> dict:
@@ -92,7 +91,6 @@ def run_pipeline(
         p for p in raw_dir.rglob("*.jsonl")
         if not state.is_raw_file_processed(p.relative_to(raw_dir).as_posix())
     )
-    lsh = dedup.load_lsh(lsh_path)
 
     posts_collected = 0
     posts_dropped_empty = 0
@@ -108,7 +106,7 @@ def run_pipeline(
     num_workers = workers if workers is not None else (os.cpu_count() or 1)
 
     with Pool(processes=num_workers) as pool:
-        for i, raw_file in enumerate(raw_files):
+        for raw_file in raw_files:
             posts = []
             with raw_file.open("r", encoding="utf-8") as f:
                 for line in f:
@@ -135,8 +133,6 @@ def run_pipeline(
                     by_subforum_dropped[post["subforum_id"]] += 1
                     continue
                 doc_id = f"djelfa_{post['post_id']}"
-                if dedup.is_near_duplicate(lsh, doc_id, minhash):
-                    continue
                 doc = schema.build_document(
                     doc_id=doc_id,
                     text=cleaned,
@@ -170,11 +166,6 @@ def run_pipeline(
 
             state.mark_raw_file_processed(raw_file.relative_to(raw_dir).as_posix())
             state.save()
-
-            if (i + 1) % LSH_SAVE_INTERVAL == 0:
-                dedup.save_lsh(lsh, lsh_path)
-
-    dedup.save_lsh(lsh, lsh_path)
 
     threads_processed = len(raw_files)
     run_entry = {

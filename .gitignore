@@ -43,6 +43,10 @@ Embeddings/intrinsic_eval/plan.md
 Embeddings/intrinsic_eval/guide.md
 Embeddings/word2vec/plan.md
 Embeddings/word2vec/guide.md
+local_models/plan.md
+local_models/guide.md
+Dialect_Identification/plan.md
+Dialect_Identification/guide.md
 Youtube_scrap/youtube_scrap.md
 Mountada_djelfa_scrap/djelfa_scrap.md
 
@@ -113,6 +117,16 @@ Embeddings/word2vec/data/*
 Embeddings/word2vec/models/*
 !Embeddings/word2vec/data/.gitkeep
 !Embeddings/word2vec/models/.gitkeep
+
+# Dialect/language-ID sampling + Qwen3.5-4B-labeled dataset -- large,
+# reproducible via Dialect_Identification/scripts/build_dataset.py +
+# label_dataset.py, same treatment as N-gram/ and Embeddings/word2vec/
+# above. review_flags.jsonl stays tracked -- small, historical review
+# notes from the prompt-tuning phase, same "small report stays" exception
+# as N-gram's/Benchmarks' report files.
+Dialect_Identification/data/*
+!Dialect_Identification/data/.gitkeep
+!Dialect_Identification/data/review_flags.jsonl
 
 pytest.ini
 

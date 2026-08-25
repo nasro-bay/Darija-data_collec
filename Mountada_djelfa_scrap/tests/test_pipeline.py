@@ -66,7 +66,12 @@ class PipelineTests(unittest.TestCase):
             workers=1,
         )
 
-    def test_dedupes_and_builds_nested_schema(self):
+    def test_dedup_is_disabled_but_hash_still_computed(self):
+        # Dedup is intentionally disabled in the pipeline (see pipeline.py's
+        # module docstring) -- an exact-duplicate post is now retained
+        # rather than dropped, but dedup_hash is still computed and stored
+        # per doc so a future standalone dedup pass (dedup.py, unchanged)
+        # can reuse it without recomputing.
         _write_raw_file(
             self.raw_dir / "50" / "t1.jsonl",
             [
@@ -78,11 +83,11 @@ class PipelineTests(unittest.TestCase):
         result = self._run()
 
         self.assertEqual(result["posts_collected"], 3)
-        self.assertEqual(result["posts_retained"], 2)
+        self.assertEqual(result["posts_retained"], 3)
 
         batch_path = self.processed_dir / f"batch_{date.today().isoformat()}.jsonl"
         docs = [json.loads(line) for line in batch_path.read_text(encoding="utf-8").splitlines()]
-        self.assertEqual(len(docs), 2)
+        self.assertEqual(len(docs), 3)
 
         doc = docs[0]
         self.assertEqual(doc["id"], "djelfa_1001")
@@ -92,6 +97,8 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(doc["source_metadata"]["thread_url"], "https://www.djelfa.info/vb/showthread.php?t=t1")
         self.assertIsNone(doc["script"])
         self.assertIsNone(doc["darija_confidence"])
+        self.assertTrue(doc["dedup_hash"])
+        self.assertEqual(docs[0]["dedup_hash"], docs[1]["dedup_hash"])
 
     def test_per_subforum_breakdown(self):
         _write_raw_file(self.raw_dir / "50" / "t1.jsonl", [_post("1001", "نص فريد رقم واحد هنا", "50")])
@@ -158,10 +165,13 @@ class PipelineTests(unittest.TestCase):
         batch_path = self.processed_dir / f"batch_{date.today().isoformat()}.jsonl"
         self.assertFalse(batch_path.exists())
 
-    def test_cleaning_collapses_boilerplate_variants_into_near_duplicates(self):
+    def test_cleaning_collapses_boilerplate_variants_to_identical_text(self):
         # Same real reply, quoting two different users -> distinct raw text,
-        # but identical after the quote-wrapper is stripped. Confirms
-        # cleaning runs *before* dedup, per the pipeline's docstring.
+        # but identical after the quote-wrapper is stripped. Both are
+        # retained (dedup is disabled -- see pipeline.py's module
+        # docstring), but their cleaned text and dedup_hash end up
+        # identical, confirming cleaning still runs consistently ahead of
+        # hashing.
         _write_raw_file(
             self.raw_dir / "50" / "t1.jsonl",
             [
@@ -172,7 +182,12 @@ class PipelineTests(unittest.TestCase):
         result = self._run()
 
         self.assertEqual(result["posts_collected"], 2)
-        self.assertEqual(result["posts_retained"], 1)
+        self.assertEqual(result["posts_retained"], 2)
+
+        batch_path = self.processed_dir / f"batch_{date.today().isoformat()}.jsonl"
+        docs = [json.loads(line) for line in batch_path.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(docs[0]["text"], docs[1]["text"])
+        self.assertEqual(docs[0]["dedup_hash"], docs[1]["dedup_hash"])
 
     def test_log_json_tracks_dropped_empty_totals(self):
         _write_raw_file(

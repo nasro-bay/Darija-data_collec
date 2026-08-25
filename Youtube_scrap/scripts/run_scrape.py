@@ -16,9 +16,8 @@ sys.path.insert(0, str(ROOT / "src"))
 import yaml  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 
-from darija_corpus.scrape import scrape_video  # noqa: E402
-from darija_corpus.state import QuotaExceededError, State  # noqa: E402
-from darija_corpus.youtube_client import YouTubeClient  # noqa: E402
+from darija_corpus.scrape import scrape_videos_parallel  # noqa: E402
+from darija_corpus.state import State  # noqa: E402
 
 
 def load_seed_videos(config_path: Path) -> list[str]:
@@ -32,6 +31,10 @@ def load_seed_videos(config_path: Path) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=str(ROOT / "config" / "seed_videos.yaml"))
+    parser.add_argument(
+        "--workers", type=int, default=None,
+        help="parallel worker processes, each scraping a different video (default: CPU count)",
+    )
     args = parser.parse_args()
 
     load_dotenv(ROOT / ".env")
@@ -47,18 +50,16 @@ def main() -> None:
         )
 
     state = State(ROOT / "data" / "state" / "scrape_state.json")
-    client = YouTubeClient(api_key, state)
     raw_dir = ROOT / "data" / "raw"
 
-    for entry in videos:
-        print(f"Scraping video: {entry}")
-        try:
-            result = scrape_video(client, state, raw_dir, entry)
-            print(f"  -> {result}")
-        except QuotaExceededError as exc:
-            print(f"  Stopped: {exc}")
-            print("  Progress saved — rerun this script (tomorrow, once quota resets) to resume.")
-            break
+    print(f"Scraping {len(videos)} video(s) across up to {args.workers or os.cpu_count() or 1} worker(s)...")
+    results = scrape_videos_parallel(api_key, state, raw_dir, videos, workers=args.workers)
+    for result in results:
+        print(f"  -> {result}")
+
+    if any(r["status"] == "quota_exceeded" for r in results):
+        print("\nStopped: daily quota exhausted.")
+        print("Progress saved — rerun this script (tomorrow, once quota resets) to resume.")
 
     print(f"\nQuota used today: {state.data['quota']['units_used']} / 10000")
 

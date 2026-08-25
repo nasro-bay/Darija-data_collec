@@ -1,24 +1,26 @@
 """Scrape raw YouTube comments into data/raw/<video_id>.jsonl, either from
-individually-specified video links (`scrape_video`) or by walking a whole
-channel's uploads newest-first (`scrape_channel`) — both funnel into the
-same per-video `scrape_video_comments`, so a video reached either way is
-never scraped twice. Resumable at the channel, video, and comment-page
-level via the shared `State`. Video info (video_id, channel, scrape_date)
-is carried only as fields on each comment record — no separate
-video-level record is kept.
+individually-specified video links (`scrape_video`, or in parallel via
+`scrape_videos_parallel`) or by walking a whole channel's uploads
+newest-first (`scrape_channel`) — all funnel into the same per-video
+comment-fetch logic, so a video reached any way is never scraped twice.
+Resumable at the channel, video, and comment-page level via the shared
+`State`. Video info (video_id, channel, scrape_date) is carried only as
+fields on each comment record — no separate video-level record is kept.
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import date
+from multiprocessing import Pool
 from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 from googleapiclient.errors import HttpError
 
-from .state import State
+from .state import QuotaExceededError, State
 from .youtube_client import YouTubeClient, error_reason
 
 SKIPPABLE_REASONS = {"commentsDisabled", "videoNotFound"}
@@ -211,6 +213,251 @@ def scrape_video(client: YouTubeClient, state: State, raw_dir: Path, video_url_o
     return {"video_id": video_id, "channel": channel_id, "status": status}
 
 
+class _LocalQuotaCap:
+    """Minimal State-compatible quota tracker (`.spend()` raising
+    QuotaExceededError) scoped to one parallel worker's slice of the daily
+    budget -- lets a worker's real YouTubeClient be quota-capped through
+    the exact same mechanism the sequential path uses (State.spend()),
+    without touching any file or the real persisted daily total.
+    """
+
+    def __init__(self, unit_cap: int):
+        self.units_used = 0
+        self._cap = unit_cap
+
+    def spend(self, units: int) -> None:
+        if self.units_used + units > self._cap:
+            raise QuotaExceededError(f"worker unit cap reached ({self.units_used}+{units} > {self._cap})")
+        self.units_used += units
+
+
+def _scrape_one_video_core(
+    client, video_id: str, channel_id: Optional[str], resume_page_token: Optional[str]
+) -> dict:
+    """Scrapes one video's comments using `client` (real or fake, anything
+    satisfying YouTubeClient's interface) -- deliberately independent of
+    any shared State, which is what makes it safe to run inside a
+    multiprocessing worker (see _scrape_one_video_worker) *and* directly
+    in a test with a FakeClient, no multiprocessing involved.
+
+    Returns a self-contained result for the caller to apply to State:
+      {"video_id", "channel_id", "channel_title", "status", "records",
+       "next_page_token", "reason"?}
+    status: "done" | "partial" (stopped early -- quota cap hit, resume via
+    next_page_token) | "comments_disabled" | "error" (reason set).
+
+    Any HttpError (including an unexpected/non-skippable one) is caught
+    here rather than re-raised, unlike the sequential scrape_video_comments
+    -- one bad video must not crash sibling workers' already-completed
+    results in the same parallel batch.
+    """
+    channel_title = None
+    page_token = resume_page_token
+    records: list[dict] = []
+    try:
+        if channel_id is None:
+            metadata = client.get_video_metadata(video_id)
+            if not metadata:
+                return {
+                    "video_id": video_id, "channel_id": None, "channel_title": None,
+                    "status": "error", "records": [], "next_page_token": None,
+                    "reason": "video not found",
+                }
+            channel_id = metadata["channel_id"]
+            channel_title = metadata.get("channel_title")
+
+        while True:
+            response = client.list_comment_threads(video_id, page_token=page_token)
+            for item in response.get("items", []):
+                top = item["snippet"]["topLevelComment"]
+                records.append(
+                    _comment_record(
+                        comment_id=top["id"],
+                        text=top["snippet"]["textDisplay"],
+                        video_id=video_id,
+                        channel_id=channel_id,
+                        source_type="comment",
+                    )
+                )
+                total_replies = item["snippet"].get("totalReplyCount", 0)
+                inline_replies = item.get("replies", {}).get("comments", [])
+                for reply in inline_replies:
+                    records.append(
+                        _comment_record(
+                            comment_id=reply["id"],
+                            text=reply["snippet"]["textDisplay"],
+                            video_id=video_id,
+                            channel_id=channel_id,
+                            source_type="reply",
+                            parent_id=top["id"],
+                        )
+                    )
+                if total_replies > len(inline_replies):
+                    records.extend(
+                        _fetch_remaining_replies(
+                            client, top["id"], video_id, channel_id, skip=len(inline_replies)
+                        )
+                    )
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+        return {
+            "video_id": video_id, "channel_id": channel_id, "channel_title": channel_title,
+            "status": "done", "records": records, "next_page_token": None,
+        }
+    except QuotaExceededError:
+        return {
+            "video_id": video_id, "channel_id": channel_id, "channel_title": channel_title,
+            "status": "partial", "records": records, "next_page_token": page_token,
+        }
+    except HttpError as exc:
+        reason = error_reason(exc)
+        if reason in SKIPPABLE_REASONS:
+            return {
+                "video_id": video_id, "channel_id": channel_id, "channel_title": channel_title,
+                "status": "comments_disabled", "records": records, "next_page_token": None,
+            }
+        return {
+            "video_id": video_id, "channel_id": channel_id, "channel_title": channel_title,
+            "status": "error", "records": records, "next_page_token": page_token, "reason": str(exc),
+        }
+
+
+def _scrape_one_video_worker(args: dict) -> dict:
+    """multiprocessing.Pool entry point -- must be module-level so it's
+    picklable, including Windows' spawn start method (same requirement as
+    pipeline.py's worker functions). Builds a real, per-worker-capped
+    YouTubeClient and delegates to _scrape_one_video_core; never touches
+    the shared State or writes any file itself -- see
+    scrape_videos_parallel's docstring for why.
+    """
+    quota = _LocalQuotaCap(args["unit_cap"])
+    client = YouTubeClient(args["api_key"], quota)
+    result = _scrape_one_video_core(client, args["video_id"], args["channel_id"], args["resume_page_token"])
+    result["units_spent"] = quota.units_used
+    return result
+
+
+def scrape_videos_parallel(
+    api_key: str,
+    state: State,
+    raw_dir: Path,
+    video_url_or_ids: list[str],
+    *,
+    workers: Optional[int] = None,
+    worker_fn=_scrape_one_video_worker,
+    map_fn=None,
+) -> list[dict]:
+    """Scrapes a list of independent video links/IDs in parallel across a
+    process pool -- each worker handles a DIFFERENT video's full comment
+    fetch concurrently. This is what run_scrape.py's seed_videos.yaml loop
+    uses.
+
+    All State mutation and raw-file writes happen back in this (main)
+    process only, once per batch, after every worker in that batch has
+    returned -- workers never touch the shared state.json or write raw
+    files themselves. This is deliberate: state.json is a single shared
+    file (see state.py's docstring), and multiple processes each loading
+    their own in-memory copy and calling .save() independently would race
+    and silently lose each other's updates (last save wins). Keeping every
+    write sequential in the main process avoids that entirely, the same
+    pattern pipeline.py already uses for its own process pool.
+
+    Quota safety: real per-request spending happens inside each worker's
+    own YouTubeClient, capped locally to that worker's fair share of the
+    remaining daily budget for the batch (_LocalQuotaCap) -- so a batch of
+    workers can never collectively spend more than what was remaining when
+    the batch was dispatched, even though the real state.json ledger is
+    only updated afterward, in the main process. (One edge case: very
+    close to quota exhaustion, integer-dividing a tiny remaining budget
+    across a full batch can round each worker's cap up to a minimum of 1,
+    letting a batch overshoot the true remaining budget by up to
+    len(batch)-1 units in the worst case -- negligible against the
+    10,000-unit daily budget, and Google's own server-side enforcement,
+    already handled via QuotaExceededError, is the real backstop.)
+
+    Trade-off vs. the sequential scrape_video(): a video dispatched to a
+    worker is no longer resumable at the comment-page level if the whole
+    process is killed mid-video -- only at the batch boundary. A worker
+    hitting its own quota cap still reports "partial" + a resume cursor
+    (same as scrape_video hitting the real daily quota), so a later run
+    picks it back up from that page, not from scratch; only a hard kill
+    mid-worker loses that one video's progress. Acceptable given seed
+    videos are typically far smaller than a full channel walk.
+
+    `worker_fn`/`map_fn` are injectable for tests (bypass real
+    multiprocessing and a real API key) -- production code should never
+    pass them.
+    """
+    num_workers = workers if workers is not None else (os.cpu_count() or 1)
+
+    pending: list[tuple[str, Optional[str]]] = []
+    results: list[dict] = []
+    for entry in video_url_or_ids:
+        video_id = extract_video_id(entry)
+        video_state = state.video_state(video_id)
+        if video_state["status"] in ("done", "comments_disabled"):
+            results.append(
+                {"video_id": video_id, "channel": video_state.get("channel_id"), "status": video_state["status"]}
+            )
+            continue
+        pending.append((video_id, video_state.get("channel_id")))
+
+    for batch_start in range(0, len(pending), num_workers):
+        batch = pending[batch_start : batch_start + num_workers]
+        remaining = state.units_remaining()
+        if remaining <= 0:
+            for video_id, channel_id in batch:
+                results.append({"video_id": video_id, "channel": channel_id, "status": "quota_exceeded"})
+            break
+
+        per_worker_cap = max(1, remaining // len(batch))
+        args_list = [
+            {
+                "api_key": api_key,
+                "video_id": video_id,
+                "channel_id": channel_id,
+                "resume_page_token": state.video_state(video_id).get("next_comment_page_token"),
+                "unit_cap": per_worker_cap,
+            }
+            for video_id, channel_id in batch
+        ]
+
+        if map_fn is not None:
+            batch_results = list(map_fn(worker_fn, args_list))
+        else:
+            with Pool(processes=min(num_workers, len(batch))) as pool:
+                batch_results = pool.map(worker_fn, args_list)
+
+        for r in batch_results:
+            video_state = state.video_state(r["video_id"])
+            if r.get("channel_id"):
+                video_state["channel_id"] = r["channel_id"]
+                if r.get("channel_title"):
+                    state.record_channel_info(r["channel_id"], r["channel_title"])
+            _append_jsonl(raw_dir / f"{r['video_id']}.jsonl", r["records"])
+            state.spend(r["units_spent"])
+
+            status = r["status"]
+            if status in ("done", "comments_disabled"):
+                video_state["status"] = status
+                video_state["next_comment_page_token"] = None
+            elif status == "partial":
+                video_state["status"] = "pending"
+                video_state["next_comment_page_token"] = r["next_page_token"]
+            else:  # "error"
+                video_state["status"] = "error"
+
+            entry = {"video_id": r["video_id"], "channel": r.get("channel_id"), "status": status}
+            if "reason" in r:
+                entry["reason"] = r["reason"]
+            results.append(entry)
+
+        state.save()
+
+    return results
+
+
 def scrape_channel(
     client: YouTubeClient,
     state: State,
@@ -219,11 +466,37 @@ def scrape_channel(
     channel_id: Optional[str] = None,
     handle: Optional[str] = None,
     max_videos: Optional[int] = None,
+    api_key: Optional[str] = None,
+    workers: Optional[int] = None,
+    worker_fn=None,
+    map_fn=None,
 ) -> dict:
-    """Walks a channel's uploads playlist newest-video-first, scraping each
-    video's comments via `scrape_video_comments`. If `max_videos` is set,
-    stops once that many of the newest videos have been considered
+    """Walks a channel's uploads playlist newest-video-first. If `max_videos`
+    is set, stops once that many of the newest videos have been considered
     (persisted across runs, so a resumed walk won't overshoot the cap).
+    Which videos to process each page is always decided sequentially, cheaply,
+    with no API calls (just cap bookkeeping against the already-fetched page
+    of video IDs) -- newest-first selection order is a correctness
+    requirement (it's what makes `max_videos` mean "the N newest", and what
+    `capped_at`/resume bookkeeping assumes), but the actual, expensive
+    comment-fetching for that page's selected videos does not need to
+    happen in that same order to still be correct.
+
+    If `api_key` is given, each page's selected videos are scraped in
+    PARALLEL across a process pool (via scrape_videos_parallel) -- pass
+    `workers` to control pool size. If `api_key` is omitted (the default),
+    falls back to the original sequential behavior via
+    `scrape_video_comments` using `client` directly, unchanged -- this is
+    what every existing caller/test still gets.
+
+    Behavioral difference in the parallel path: quota exhaustion mid-walk
+    is reported back in the returned dict (`"quota_exceeded": True`)
+    instead of raising QuotaExceededError -- multiprocessing.Pool can't
+    propagate a single worker's exception without discarding its
+    already-collected sibling results, so scrape_videos_parallel always
+    returns rather than raises (see its docstring); scrape_channel's
+    sequential path keeps raising, unchanged, since existing callers/tests
+    depend on that.
     """
     # If we already know this channel's uploads playlist from a previous
     # run — whether it was passed as channel_id directly, or a handle we've
@@ -272,8 +545,11 @@ def scrape_channel(
     counted_ids = set(channel_state["counted_video_ids"])
     page_token = channel_state.get("next_playlist_page_token")
     hit_cap = False
+    quota_stopped = False
     while True:
         video_ids, next_token = client.list_playlist_video_ids(playlist_id, page_token=page_token)
+
+        page_selected: list[str] = []
         for video_id in video_ids:
             if max_videos is not None and channel_state["videos_found"] >= max_videos:
                 hit_cap = True
@@ -287,30 +563,54 @@ def scrape_channel(
                 counted_ids.add(video_id)
                 channel_state["counted_video_ids"].append(video_id)
                 channel_state["videos_found"] += 1
-            status = scrape_video_comments(client, state, raw_dir, video_id, resolved_id)
-            if status == "done":
-                videos_done += 1
-            elif status == "comments_disabled":
-                videos_skipped += 1
-        if not hit_cap:
+            page_selected.append(video_id)
+
+        if api_key is not None:
+            # Known channel_id -- pre-seed it so scrape_videos_parallel's
+            # per-worker resolution skips a redundant metadata lookup.
+            for video_id in page_selected:
+                state.video_state(video_id)["channel_id"] = resolved_id
+            page_results = scrape_videos_parallel(
+                api_key, state, raw_dir, page_selected,
+                workers=workers, worker_fn=worker_fn or _scrape_one_video_worker, map_fn=map_fn,
+            )
+            for r in page_results:
+                if r["status"] == "done":
+                    videos_done += 1
+                elif r["status"] == "comments_disabled":
+                    videos_skipped += 1
+                elif r["status"] == "quota_exceeded":
+                    quota_stopped = True
+        else:
+            for video_id in page_selected:
+                status = scrape_video_comments(client, state, raw_dir, video_id, resolved_id)
+                if status == "done":
+                    videos_done += 1
+                elif status == "comments_disabled":
+                    videos_skipped += 1
+
+        if not hit_cap and not quota_stopped:
             # Only advance the resume cursor past this page if we finished
-            # it — if capped mid-page, leave it pointing at this same page,
-            # so a later run with a higher (or no) cap re-fetches it and
-            # continues from where it stopped instead of skipping videos.
+            # it — if capped/quota-stopped mid-page, leave it pointing at
+            # this same page, so a later run re-fetches it and continues
+            # from where it stopped instead of skipping videos.
             channel_state["next_playlist_page_token"] = next_token
         state.save()
-        if hit_cap:
+        if hit_cap or quota_stopped:
             break
         page_token = next_token
         if not page_token:
             break
 
     channel_state["capped_at"] = max_videos if hit_cap else None
-    channel_state["completed"] = not hit_cap
+    channel_state["completed"] = not hit_cap and not quota_stopped
     state.save()
-    return {
+    result = {
         "channel": resolved_id,
         "videos_considered": channel_state["videos_found"],
         "videos_done": videos_done,
         "videos_skipped": videos_skipped,
     }
+    if quota_stopped:
+        result["quota_exceeded"] = True
+    return result
