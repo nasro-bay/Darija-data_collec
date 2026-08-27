@@ -87,8 +87,17 @@ def run_pipeline(
 
     num_workers = workers if workers is not None else (os.cpu_count() or 1)
 
+    # state.save() rewrites the whole state.json (videos/channels/handles
+    # dicts included, not just pipeline progress) -- with 50k+ raw files
+    # that's tens of thousands of full-file rewrites if done every
+    # iteration, and was the pipeline's real bottleneck once dedup's
+    # sequential LSH cost (which used to dwarf this) was removed. Flushed
+    # every STATE_SAVE_INTERVAL files instead, and once more at the end;
+    # a crash mid-run re-processes at most that many files on resume.
+    STATE_SAVE_INTERVAL = 50
+
     with processed_path.open("a", encoding="utf-8") as out, Pool(processes=num_workers) as pool:
-        for raw_file in raw_files:
+        for i, raw_file in enumerate(raw_files, start=1):
             comments = []
             with raw_file.open("r", encoding="utf-8") as f:
                 for line in f:
@@ -124,7 +133,10 @@ def run_pipeline(
                 comments_retained += 1
 
             state.mark_raw_file_processed(raw_file.name)
-            state.save()
+            if i % STATE_SAVE_INTERVAL == 0:
+                state.save()
+
+        state.save()
 
     run_entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),

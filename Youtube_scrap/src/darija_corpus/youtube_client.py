@@ -44,7 +44,7 @@ class YouTubeClient:
 
     def _execute(self, request, cost: int) -> dict:
         self._state.spend(cost)
-        last_error: Optional[HttpError] = None
+        last_error: Optional[BaseException] = None
         for attempt in range(MAX_RETRIES):
             try:
                 return request.execute()
@@ -60,6 +60,17 @@ class YouTubeClient:
                     time.sleep(2**attempt)
                     continue
                 raise
+            except OSError as exc:
+                # Network-level failure (connection timeout/reset/refused,
+                # DNS hiccup, etc.) -- happens before any HTTP response is
+                # received, so it never reaches the HttpError branch above.
+                # Confirmed to crash the whole scrape run uncaught otherwise
+                # (a raw TimeoutError propagating out of request.execute())
+                # -- always worth retrying like the other transient cases
+                # above.
+                last_error = exc
+                time.sleep(2**attempt)
+                continue
         raise last_error
 
     def resolve_channel(

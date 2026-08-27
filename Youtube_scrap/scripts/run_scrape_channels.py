@@ -58,11 +58,6 @@ def main() -> None:
         "overriding a channel's own max_videos only if it's stricter (lower). "
         "Handy for a cheap test run without editing the config.",
     )
-    parser.add_argument(
-        "--workers", type=int, default=None,
-        help="parallel worker processes per page of videos, each scraping a "
-        "different video's comments (default: CPU count)",
-    )
     args = parser.parse_args()
 
     load_dotenv(ROOT / ".env")
@@ -98,13 +93,8 @@ def main() -> None:
             result = scrape_channel(
                 client, state, raw_dir,
                 channel_id=channel_id, handle=handle, max_videos=max_videos,
-                api_key=api_key, workers=args.workers,
             )
             print(f"  -> {result}")
-            if result.get("quota_exceeded"):
-                print("  Stopped: daily quota exhausted.")
-                print("  Progress saved — rerun this script (tomorrow, once quota resets) to resume.")
-                break
         except QuotaExceededError as exc:
             print(f"  Stopped: {exc}")
             print("  Progress saved — rerun this script (tomorrow, once quota resets) to resume.")

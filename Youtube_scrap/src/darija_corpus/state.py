@@ -31,6 +31,12 @@ class State:
     def __init__(self, path: Path):
         self.path = path
         self.data: dict[str, Any] = self._load()
+        # `processed_raw_files` is a JSON list (order doesn't matter, but a
+        # list is what round-trips through json.dump/load), so membership
+        # checks against it would otherwise be O(n) -- cached as a set here
+        # since is_raw_file_processed() is called once per raw file on every
+        # pipeline run, against a raw-file count in the tens of thousands.
+        self._processed_raw_files_set: set[str] = set(self.data["pipeline"]["processed_raw_files"])
 
     def _load(self) -> dict:
         if self.path.exists():
@@ -115,7 +121,8 @@ class State:
 
     # --- pipeline progress ---
     def is_raw_file_processed(self, filename: str) -> bool:
-        return filename in self.data["pipeline"]["processed_raw_files"]
+        return filename in self._processed_raw_files_set
 
     def mark_raw_file_processed(self, filename: str) -> None:
         self.data["pipeline"]["processed_raw_files"].append(filename)
+        self._processed_raw_files_set.add(filename)
