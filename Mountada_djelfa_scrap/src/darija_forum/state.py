@@ -23,6 +23,9 @@ class State:
     def __init__(self, path: Path):
         self.path = path
         self.data: dict[str, Any] = self._load()
+        # See Youtube_scrap's state.py -- cached to avoid an O(n) list scan
+        # per is_raw_file_processed() call against a growing raw-file count.
+        self._processed_raw_files_set: set[str] = set(self.data["pipeline"]["processed_raw_files"])
 
     def _load(self) -> dict:
         if self.path.exists():
@@ -63,7 +66,8 @@ class State:
 
     # --- pipeline progress ---
     def is_raw_file_processed(self, filename: str) -> bool:
-        return filename in self.data["pipeline"]["processed_raw_files"]
+        return filename in self._processed_raw_files_set
 
     def mark_raw_file_processed(self, filename: str) -> None:
         self.data["pipeline"]["processed_raw_files"].append(filename)
+        self._processed_raw_files_set.add(filename)
