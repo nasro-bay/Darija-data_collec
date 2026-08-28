@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-"""Builds the one-time 10k-sentence pool to be annotated (by the local
-Qwen3.5-4B classifier, see ../guide.md) for the 6-class dialect/language
-ID task: french, arabize, msa, darija_arabic_script, english, code_switch.
+"""Builds (and can EXTEND) the sentence pool to be annotated (by the
+local Qwen3.5-4B classifier, see ../guide.md) for the 6-class
+dialect/language ID task: french, arabize, msa, darija_arabic_script,
+english, code_switch.
 
 Sampling design (agreed in-session, not re-derived here):
-- djelfa forum posts: 1,500 examples, plain reservoir sample -- djelfa is
-  mostly MSA already, so no script-based stratification needed there.
-- YouTube comments: 8,500 examples, split into three equal script-based
-  buckets via regex (not random sampling) so all three ~arabic/~latin/
-  ~mixed regimes are represented regardless of the corpus's natural
-  script mix:
+- djelfa forum posts: reservoir sample -- djelfa is mostly MSA already,
+  so no script-based stratification needed there.
+- YouTube comments: split into three equal script-based buckets via
+  regex (not random sampling) so all three ~arabic/~latin/~mixed regimes
+  are represented regardless of the corpus's natural script mix:
     - "arabic": Arabic-script only (candidates for msa/darija_arabic_script)
     - "latin": Latin-script only (candidates for french/english/arabize)
     - "mixed": both scripts present in the same text (candidates for
@@ -19,6 +19,20 @@ Sampling design (agreed in-session, not re-derived here):
   Youtube_scrap/Mountada_djelfa_scrap -- built fresh here, not touching
   either project's persisted pipeline LSH state), then trimmed to the
   exact target count.
+
+**Extending an existing pool** (e.g. 10k -> 20k, per this project's
+label_dataset.py resuming POSITIONALLY by line index into this file --
+see its already_labeled_count()/`rows[start:end]` logic): if
+OUT_PATH already exists, this script does NOT touch its existing rows
+at all -- it only samples however many MORE rows each group needs to
+reach the new per-group targets below, excluding every id already in
+the file (so nothing gets sampled twice) and seeding each group's dedup
+LSH with its existing rows first (so a near-duplicate of an
+already-included row gets skipped too, not just near-dups within the
+new batch). The new rows are then appended after the existing ones,
+in their own freshly-shuffled order -- existing line order/content is
+never rewritten, which is what keeps already-labeled rows' positions
+valid for resuming.
 
 Bucketing uses clean_for_classification(text) (see notebooks/01_cleaning_
 rules.ipynb), not raw text: the `[MENTION]`/`[URL]` anonymization
@@ -49,13 +63,21 @@ from pathlib import Path
 from datasketch import MinHash, MinHashLSH
 
 ROOT = Path(__file__).resolve().parents[2]
+# Filename kept as "unlabeled_10k.jsonl" even now that the pool targets
+# 20k total -- label_dataset.py hardcodes this path, and renaming it
+# would require updating that script too for zero benefit (the name is
+# just a filename at this point, not a live claim about row count).
 OUT_PATH = Path(__file__).resolve().parents[1] / "data" / "unlabeled_10k.jsonl"
 
 DJELFA_FILES = sorted((ROOT / "Mountada_djelfa_scrap" / "data" / "processed").glob("batch_*.jsonl"))
 YOUTUBE_FILES = sorted((ROOT / "Youtube_scrap" / "data" / "processed").glob("batch_*.jsonl"))
 
-DJELFA_TARGET = 1_500
-YOUTUBE_BUCKET_TARGETS = {"arabic": 2_834, "latin": 2_833, "mixed": 2_833}
+# Total desired pool size per group (not "additional this run") -- extending
+# from the original 10k (1,500 / 2,834 / 2,833 / 2,833) to 20k, same
+# proportions doubled. main() figures out how many MORE rows each group
+# actually needs by subtracting what's already in OUT_PATH.
+DJELFA_TARGET = 3_000
+YOUTUBE_BUCKET_TARGETS = {"arabic": 5_668, "latin": 5_666, "mixed": 5_666}
 OVERSAMPLE_FACTOR = 1.3
 SEED = 42
 
@@ -114,11 +136,17 @@ def _minhash(text: str) -> MinHash:
     return mh
 
 
-def dedup_and_trim(rows: list[dict], target: int, label: str) -> list[dict]:
+def dedup_and_trim(rows: list[dict], target: int, label: str, lsh: MinHashLSH | None = None) -> list[dict]:
     """Walks `rows` in (already-shuffled) order, drops near-duplicates via
-    a fresh MinHash/LSH index, stops once `target` unique rows are kept.
+    a MinHash/LSH index, stops once `target` unique rows are kept.
+
+    `lsh` can be pre-seeded (e.g. with an existing pool's rows, when
+    extending it) so a near-duplicate of something already kept gets
+    skipped too, not just near-dups within `rows` itself -- defaults to a
+    fresh empty index for a from-scratch build.
     """
-    lsh = MinHashLSH(threshold=DEDUP_THRESHOLD, num_perm=NUM_PERM)
+    if lsh is None:
+        lsh = MinHashLSH(threshold=DEDUP_THRESHOLD, num_perm=NUM_PERM)
     kept: list[dict] = []
     for i, row in enumerate(rows):
         if len(kept) >= target:
@@ -134,7 +162,9 @@ def dedup_and_trim(rows: list[dict], target: int, label: str) -> list[dict]:
     return kept
 
 
-def reservoir_sample_djelfa(target_pool: int, rng: random.Random) -> list[dict]:
+def reservoir_sample_djelfa(
+    target_pool: int, rng: random.Random, exclude_ids: set[str] = frozenset()
+) -> list[dict]:
     reservoir: list[dict] = []
     seen = 0
     for path in DJELFA_FILES:
@@ -145,6 +175,8 @@ def reservoir_sample_djelfa(target_pool: int, rng: random.Random) -> list[dict]:
                 row = json.loads(line)
                 if not row.get("text", "").strip():
                     continue
+                if row.get("id") in exclude_ids:
+                    continue  # already in the pool from a previous build/extend run
                 seen += 1
                 if len(reservoir) < target_pool:
                     reservoir.append(row)
@@ -156,7 +188,9 @@ def reservoir_sample_djelfa(target_pool: int, rng: random.Random) -> list[dict]:
     return reservoir
 
 
-def reservoir_sample_youtube_buckets(target_pools: dict[str, int], rng: random.Random) -> dict[str, list[dict]]:
+def reservoir_sample_youtube_buckets(
+    target_pools: dict[str, int], rng: random.Random, exclude_ids: set[str] = frozenset()
+) -> dict[str, list[dict]]:
     reservoirs: dict[str, list[dict]] = {k: [] for k in target_pools}
     seen: dict[str, int] = {k: 0 for k in target_pools}
     for i, path in enumerate(YOUTUBE_FILES):
@@ -168,6 +202,8 @@ def reservoir_sample_youtube_buckets(target_pools: dict[str, int], rng: random.R
                 text = row.get("text", "")
                 if not text.strip():
                     continue
+                if row.get("id") in exclude_ids:
+                    continue  # already in the pool from a previous build/extend run
                 bucket = script_of(clean_for_classification(text))
                 if bucket not in reservoirs:
                     continue  # "other" -- no real script content, skip
@@ -187,38 +223,86 @@ def reservoir_sample_youtube_buckets(target_pools: dict[str, int], rng: random.R
     return reservoirs
 
 
+def _load_existing() -> list[dict]:
+    if not OUT_PATH.exists():
+        return []
+    with OUT_PATH.open("r", encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
 def main() -> None:
+    from collections import Counter
+
     rng = random.Random(SEED)
 
-    djelfa_pool = reservoir_sample_djelfa(int(DJELFA_TARGET * OVERSAMPLE_FACTOR), rng)
-    rng.shuffle(djelfa_pool)
-    djelfa_final = dedup_and_trim(djelfa_pool, DJELFA_TARGET, "djelfa")
-    for row in djelfa_final:
-        row["sample_group"] = "djelfa"
+    existing = _load_existing()
+    existing_by_group: dict[str, list[dict]] = {}
+    for row in existing:
+        existing_by_group.setdefault(row["sample_group"], []).append(row)
+    existing_ids = {row["id"] for row in existing}
+    if existing:
+        print(f"Found {len(existing):,} existing rows in {OUT_PATH} -- extending, not rebuilding.")
+        print("Existing by sample_group:", {k: len(v) for k, v in existing_by_group.items()})
+
+    # --- djelfa: sample only however many MORE rows are needed ---
+    djelfa_have = len(existing_by_group.get("djelfa", []))
+    djelfa_need = max(0, DJELFA_TARGET - djelfa_have)
+    djelfa_lsh = MinHashLSH(threshold=DEDUP_THRESHOLD, num_perm=NUM_PERM)
+    for row in existing_by_group.get("djelfa", []):
+        djelfa_lsh.insert(row["id"], _minhash(row["text"]))
+
+    djelfa_new: list[dict] = []
+    if djelfa_need:
+        djelfa_pool = reservoir_sample_djelfa(int(djelfa_need * OVERSAMPLE_FACTOR), rng, existing_ids)
+        rng.shuffle(djelfa_pool)
+        djelfa_new = dedup_and_trim(djelfa_pool, djelfa_need, "djelfa", lsh=djelfa_lsh)
+        for row in djelfa_new:
+            row["sample_group"] = "djelfa"
+    else:
+        print(f"djelfa: already has {djelfa_have}/{DJELFA_TARGET} -- nothing more needed")
+
+    # --- youtube: same, per script bucket ---
+    bucket_needs = {}
+    bucket_lsh: dict[str, MinHashLSH] = {}
+    for bucket, target in YOUTUBE_BUCKET_TARGETS.items():
+        group = f"youtube_{bucket}"
+        have = len(existing_by_group.get(group, []))
+        bucket_needs[bucket] = max(0, target - have)
+        lsh = MinHashLSH(threshold=DEDUP_THRESHOLD, num_perm=NUM_PERM)
+        for row in existing_by_group.get(group, []):
+            lsh.insert(row["id"], _minhash(row["text"]))
+        bucket_lsh[bucket] = lsh
+        if bucket_needs[bucket] == 0:
+            print(f"youtube[{bucket}]: already has {have}/{target} -- nothing more needed")
 
     youtube_pools = reservoir_sample_youtube_buckets(
-        {k: int(v * OVERSAMPLE_FACTOR) for k, v in YOUTUBE_BUCKET_TARGETS.items()}, rng
+        {k: int(v * OVERSAMPLE_FACTOR) for k, v in bucket_needs.items() if v > 0}, rng, existing_ids
     )
-    youtube_final: list[dict] = []
-    for bucket, target in YOUTUBE_BUCKET_TARGETS.items():
+    youtube_new: list[dict] = []
+    for bucket, need in bucket_needs.items():
+        if need == 0:
+            continue
         pool = youtube_pools[bucket]
         rng.shuffle(pool)
-        rows = dedup_and_trim(pool, target, f"youtube[{bucket}]")
+        rows = dedup_and_trim(pool, need, f"youtube[{bucket}]", lsh=bucket_lsh[bucket])
         for row in rows:
             row["sample_group"] = f"youtube_{bucket}"
-        youtube_final.extend(rows)
+        youtube_new.extend(rows)
 
-    all_rows = djelfa_final + youtube_final
-    rng.shuffle(all_rows)  # mix sample_groups together so annotation isn't biased by batch order
+    new_rows = djelfa_new + youtube_new
+    rng.shuffle(new_rows)  # mix sample_groups together so annotation isn't biased by batch order
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with OUT_PATH.open("w", encoding="utf-8") as f:
-        for row in all_rows:
+    # Append only -- existing rows/order are never rewritten (label_dataset.py
+    # resumes positionally by line index, see module docstring).
+    with OUT_PATH.open("a", encoding="utf-8") as f:
+        for row in new_rows:
             f.write(json.dumps({"id": row["id"], "text": row["text"], "sample_group": row["sample_group"]}, ensure_ascii=False) + "\n")
 
-    print(f"\nWrote {len(all_rows):,} rows to {OUT_PATH}")
-    from collections import Counter
-    print("By sample_group:", dict(Counter(r["sample_group"] for r in all_rows)))
+    total = len(existing) + len(new_rows)
+    print(f"\nAppended {len(new_rows):,} new rows to {OUT_PATH} (total now {total:,})")
+    all_groups = Counter(r["sample_group"] for r in existing) + Counter(r["sample_group"] for r in new_rows)
+    print("By sample_group (total):", dict(all_groups))
 
 
 if __name__ == "__main__":
