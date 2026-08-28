@@ -8,6 +8,20 @@ words from Embeddings/intrinsic_eval, and a multi-token word's vector is
 the mean of its BPE pieces' embeddings (get_word_vector) -- same approach
 validated in word2vec_eval.ipynb.
 
+A second tab, "Contextual Neighbors", answers a different question: not
+"what other words are like this one overall" but "what's this word doing
+in THIS sentence, and what other real occurrences (of this or other
+words) look similar in context" -- i.e. sense disambiguation. It reads
+data/contextual_pool.npz, a pool of (word, sentence, contextual vector)
+triples built by scripts/build_contextual_pool.py over 100k sampled
+corpus sentences via the model's own self-attention+FFN block applied to
+whole sentences (frozen, same weights, no retraining) -- see that
+script's docstring for why a static word vector can't answer this. Run
+that script first (via the GPU venv, for throughput) if
+data/contextual_pool.npz doesn't exist yet; this app only loads the
+cache, it doesn't build it (CPU inference over 100k sentences here would
+be slow, unlike the one-off build script which uses CUDA when available).
+
 Run via the GPU venv's Python (see requirements.txt):
 
     ".../ai-gpu/Scripts/python.exe" app.py
@@ -30,7 +44,7 @@ DATA_DIR = WORD2VEC_DIR / "data"
 MODELS_DIR = WORD2VEC_DIR / "models"
 STATIC_DIR = WORD2VEC_DIR / "static"
 EVAL_DATA_DIR = ROOT / "Embeddings" / "intrinsic_eval" / "data"
-CHECKPOINT = MODELS_DIR / "checkpoint_step290000.pt"
+CHECKPOINT = MODELS_DIR / "checkpoint_step640000.pt"
 
 sys.path.insert(0, str(WORD2VEC_DIR / "scripts"))
 sys.path.insert(0, str(ROOT / "Tokenization"))
@@ -42,7 +56,7 @@ ARABIC_RE = re.compile(r"[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]")
 LATIN_RE = re.compile(r"[a-zA-ZÀ-ɏ]")
 
 PAD_ID = 0  # verified against Tokenization/models/bpe/bpe_20000/vocab.json
-TOP_N_POOL_WORDS = 5000  # frequent corpus words in the neighbor candidate pool
+TOP_N_POOL_WORDS = 100000  # frequent corpus words in the neighbor candidate pool
 
 
 def script_of(text: str) -> str:
@@ -152,6 +166,69 @@ pool_normed = pool_matrix / np.clip(pool_norms, 1e-9, None)
 print(f"Candidate pool ready: {len(pool_words):,} words")
 
 
+CONTEXTUAL_POOL_PATH = DATA_DIR / "contextual_pool.npz"
+MAX_OCCURRENCES_SHOWN = 6
+
+ctx_words: np.ndarray | None = None
+ctx_sentences: np.ndarray | None = None
+ctx_normed: np.ndarray | None = None
+ctx_word_to_indices: dict[str, list[int]] = {}
+
+if CONTEXTUAL_POOL_PATH.exists():
+    print("Loading contextual-neighbor pool...")
+    _ctx = np.load(CONTEXTUAL_POOL_PATH, allow_pickle=True)
+    ctx_words = _ctx["words"]
+    ctx_sentences = _ctx["sentences"]
+    ctx_vectors = _ctx["vectors"].astype(np.float32)  # float16 on disk -- promote for matmul precision
+    ctx_norms = np.linalg.norm(ctx_vectors, axis=1, keepdims=True)
+    ctx_normed = ctx_vectors / np.clip(ctx_norms, 1e-9, None)
+    for i, w in enumerate(ctx_words):
+        ctx_word_to_indices.setdefault(w, []).append(i)
+    print(f"Contextual pool ready: {len(ctx_words):,} occurrences, {len(ctx_word_to_indices):,} distinct words")
+else:
+    print(
+        f"No contextual pool found at {CONTEXTUAL_POOL_PATH} -- the "
+        '"Contextual Neighbors" tab will show a message instead of results. '
+        "Run scripts/build_contextual_pool.py (GPU venv) to build it."
+    )
+
+
+def contextual_neighbors(word: str, k: int) -> list[tuple[str, str, list[tuple[str, str, float]]]] | None:
+    """Returns up to MAX_OCCURRENCES_SHOWN randomly-picked real occurrences
+    of `word` (one entry per occurrence: its own sentence context, plus
+    its top-k nearest-neighbor occurrences by cosine similarity over
+    contextualized vectors) -- or None if the pool isn't loaded, or an
+    empty list if `word` has no occurrences in the sampled pool (it's a
+    100k-sentence sample, not the full corpus, so a real but rare word
+    can legitimately be absent).
+    """
+    if ctx_normed is None:
+        return None
+    word = word.strip()
+    indices = ctx_word_to_indices.get(word, [])
+    if not indices:
+        return []
+
+    chosen = indices if len(indices) <= MAX_OCCURRENCES_SHOWN else list(
+        np.random.choice(indices, size=MAX_OCCURRENCES_SHOWN, replace=False)
+    )
+
+    results = []
+    for idx in chosen:
+        qv = ctx_normed[idx]
+        sims = ctx_normed @ qv
+        order = np.argsort(-sims)
+        neighbors: list[tuple[str, str, float]] = []
+        for j in order:
+            if j == idx:  # this exact occurrence -- always its own top match, not informative
+                continue
+            neighbors.append((str(ctx_words[j]), str(ctx_sentences[j]), float(sims[j])))
+            if len(neighbors) >= k:
+                break
+        results.append((word, str(ctx_sentences[idx]), neighbors))
+    return results
+
+
 def nearest_neighbors(word: str, k: int) -> list[tuple[str, float]] | None:
     word = word.strip()
     if not word:
@@ -200,6 +277,56 @@ def render_results(word: str, k: int) -> str:
             f"</div>"
         )
     return f'<div class="card-grid">{"".join(cards)}</div>'
+
+
+def _highlight(sentence: str, word: str) -> str:
+    """Bolds the first whitespace-delimited occurrence of `word` in
+    `sentence`, so the queried word is easy to spot in its own context."""
+    parts = sentence.split(" ")
+    for i, p in enumerate(parts):
+        if p == word:
+            parts[i] = f"<b>{p}</b>"
+            break
+    return " ".join(parts)
+
+
+def render_contextual_results(word: str, k: int) -> str:
+    if not word or not word.strip():
+        return '<div class="empty-state">Type a word above and press Search.</div>'
+    if ctx_normed is None:
+        return (
+            '<div class="nn-error">No contextual pool found -- run '
+            "scripts/build_contextual_pool.py first (see app.py's module docstring).</div>"
+        )
+
+    occurrences = contextual_neighbors(word, int(k))
+    if occurrences is None:
+        return '<div class="nn-error">Contextual pool failed to load.</div>'
+    if not occurrences:
+        return (
+            f'<div class="empty-state">"{word}" doesn\'t appear in the sampled '
+            "100k-sentence pool -- it may still be a real corpus word, just not "
+            "one of the sentences that got sampled. Try a more frequent word, "
+            'or use the "Word Neighbors" tab for a corpus-wide (non-contextual) lookup.</div>'
+        )
+
+    blocks = []
+    for query_word, sentence, neighbors in occurrences:
+        neighbor_cards = "".join(
+            f'<div class="ctx-neighbor">'
+            f'<span class="nn-word">{nw}</span>'
+            f'<span class="score-value">{score:.3f}</span>'
+            f'<div class="ctx-sentence">{_highlight(nsent, nw)}</div>'
+            f"</div>"
+            for nw, nsent, score in neighbors
+        )
+        blocks.append(
+            f'<div class="ctx-occurrence">'
+            f'<div class="ctx-query-sentence">{_highlight(sentence, query_word)}</div>'
+            f'<div class="ctx-neighbor-grid">{neighbor_cards}</div>'
+            f"</div>"
+        )
+    return "".join(blocks)
 
 
 CUSTOM_CSS = """
@@ -335,6 +462,54 @@ CUSTOM_CSS = """
   border: 1px solid var(--border);
   border-radius: 4px;
 }
+
+.ctx-occurrence {
+  background: var(--dz-white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.ctx-query-sentence {
+  font-size: 1.05rem;
+  direction: rtl;
+  unicode-bidi: isolate;
+  color: var(--ink);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.ctx-query-sentence b { color: var(--dz-green); }
+.ctx-neighbor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.ctx-neighbor {
+  background: var(--dz-cream);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.ctx-neighbor .nn-word {
+  font-weight: 700;
+  color: var(--ink);
+  direction: rtl;
+  unicode-bidi: isolate;
+}
+.ctx-neighbor .score-value {
+  float: right;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.ctx-sentence {
+  clear: both;
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  direction: rtl;
+  unicode-bidi: isolate;
+}
+.ctx-sentence b { color: var(--dz-green); }
 """
 
 TOPBAR_HTML = f"""
@@ -357,19 +532,43 @@ TOPBAR_HTML = f"""
 with gr.Blocks(title="Darija Word2Vec -- Nearest Neighbors") as demo:
     gr.HTML(TOPBAR_HTML)
 
-    with gr.Row(elem_id="query-row"):
-        word_input = gr.Textbox(
-            label="Word",
-            placeholder="بزاف، خدمة، مليح...",
-            scale=3,
-        )
-        k_slider = gr.Slider(minimum=3, maximum=25, value=10, step=1, label="Neighbors", scale=1)
-        search_btn = gr.Button("Search", elem_id="search-btn", scale=1)
+    with gr.Tabs():
+        with gr.Tab("Word Neighbors"):
+            with gr.Row(elem_id="query-row"):
+                word_input = gr.Textbox(
+                    label="Word",
+                    placeholder="بزاف، خدمة، مليح...",
+                    scale=3,
+                )
+                k_slider = gr.Slider(minimum=3, maximum=25, value=10, step=1, label="Neighbors", scale=1)
+                search_btn = gr.Button("Search", elem_id="search-btn", scale=1)
 
-    results = gr.HTML('<div class="empty-state">Type a word above and press Search.</div>')
+            results = gr.HTML('<div class="empty-state">Type a word above and press Search.</div>')
 
-    search_btn.click(fn=render_results, inputs=[word_input, k_slider], outputs=results)
-    word_input.submit(fn=render_results, inputs=[word_input, k_slider], outputs=results)
+            search_btn.click(fn=render_results, inputs=[word_input, k_slider], outputs=results)
+            word_input.submit(fn=render_results, inputs=[word_input, k_slider], outputs=results)
+
+        with gr.Tab("Contextual Neighbors"):
+            gr.Markdown(
+                "Static neighbors above collapse every occurrence of a word to one "
+                "fixed vector. This tab instead shows **real sentences** the word "
+                "appeared in (sampled from the corpus) and, for each one, the "
+                "nearest occurrences *in that same context* -- useful for spotting "
+                "when a word means different things in different sentences."
+            )
+            with gr.Row(elem_id="ctx-query-row"):
+                ctx_word_input = gr.Textbox(
+                    label="Word",
+                    placeholder="بزاف، خدمة، مليح...",
+                    scale=3,
+                )
+                ctx_k_slider = gr.Slider(minimum=3, maximum=15, value=6, step=1, label="Neighbors per occurrence", scale=1)
+                ctx_search_btn = gr.Button("Search", elem_id="search-btn", scale=1)
+
+            ctx_results = gr.HTML('<div class="empty-state">Type a word above and press Search.</div>')
+
+            ctx_search_btn.click(fn=render_contextual_results, inputs=[ctx_word_input, ctx_k_slider], outputs=ctx_results)
+            ctx_word_input.submit(fn=render_contextual_results, inputs=[ctx_word_input, ctx_k_slider], outputs=ctx_results)
 
 
 if __name__ == "__main__":
