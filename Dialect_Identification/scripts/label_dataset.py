@@ -102,6 +102,19 @@ LABELED_PATH = DATA_DIR / "labeled_10k.jsonl"
 
 MODEL_ID = "Qwen/Qwen3.5-4B"
 
+# Self-attention memory scales roughly with sequence length squared -- most
+# rows are short (median 49 chars across the 20k pool), but a rare long tail
+# of djelfa forum posts runs into the tens of thousands of characters (max
+# observed: 42,564). One such post (~23k chars) blew a single generate()
+# call's attention allocation past the 6GB card's budget on top of the
+# ~3.3GB the 4-bit model itself holds. 500 chars sits just above the p90
+# (230) -- only the ~4% long-tail rows are affected, and language/script/
+# dialect identification doesn't need the whole post, just a representative
+# sample of it. Truncated at PROMPT time only (transient, same "clean at
+# point of use, keep raw text stored" convention as clean_for_classification)
+# -- the stored/labeled row always keeps the full original text.
+MAX_PROMPT_CHARS = 500
+
 LATIN_CLASSES = ["arabize", "french", "english"]
 ARABIC_CLASSES = ["msa", "darija"]
 
@@ -280,6 +293,7 @@ def main() -> None:
             row = rows[i]
             cleaned = clean_for_classification(row["text"])
             script = script_of(cleaned)
+            truncated = len(cleaned) > MAX_PROMPT_CHARS
 
             if script == "mixed":
                 # Regex decides code_switch directly -- model never called
@@ -297,7 +311,7 @@ def main() -> None:
                 else:  # "arabic"
                     prompt_template, allowed = ARABIC_PROMPT_TEMPLATE, ARABIC_CLASSES
 
-                prompt = prompt_template.format(text=cleaned)
+                prompt = prompt_template.format(text=cleaned[:MAX_PROMPT_CHARS])
                 messages = [{"role": "user", "content": prompt}]
 
                 inputs = processor.apply_chat_template(
@@ -318,6 +332,7 @@ def main() -> None:
                 "sample_group": row["sample_group"],
                 "label": label,
                 "raw_model_output": raw.strip() if label == "parse_error" else None,
+                "truncated": truncated,
             }
             out.write(json.dumps(record, ensure_ascii=False) + "\n")
             out.flush()
