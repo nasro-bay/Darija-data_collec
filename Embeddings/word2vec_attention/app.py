@@ -44,7 +44,7 @@ DATA_DIR = WORD2VEC_DIR / "data"
 MODELS_DIR = WORD2VEC_DIR / "models"
 STATIC_DIR = WORD2VEC_DIR / "static"
 EVAL_DATA_DIR = ROOT / "Embeddings" / "intrinsic_eval" / "data"
-CHECKPOINT = MODELS_DIR / "checkpoint_step640000.pt"
+CHECKPOINT = MODELS_DIR / "checkpoint_step675000.pt"
 
 sys.path.insert(0, str(WORD2VEC_DIR / "scripts"))
 sys.path.insert(0, str(ROOT / "Tokenization"))

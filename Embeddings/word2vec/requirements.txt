@@ -1,27 +1,16 @@
 # Run everything in this folder via the existing GPU-enabled venv, not
-# the base environment (which has CPU-only torch and no matching CUDA
-# build available for its version):
+# the base environment (which has CPU-only torch):
 #
 #   "C:\Users\ASUS\Desktop\summer 2026\deep learning\labs\training neural networks\ai-gpu\Scripts\python.exe" scripts\...
 #
 # That venv already has everything below installed. This file documents
 # the dependency list, not something to pip-install fresh.
+#
+# No scikit-learn here, unlike word2vec_attention's requirements.txt --
+# neither cbow/ nor skip-gram/ does K-Means length clustering (see
+# plan.md's "What's actually different" section for why it's unneeded).
 
-torch          # CUDA build already present in the ai-gpu venv (2.11.0+cu128)
+torch          # CUDA build already present in the ai-gpu venv
 tokenizers     # BPE tokenizer loading (Tokenization/tokenizer_utils.py)
-sentencepiece  # required by tokenizer_utils.py even for the bpe path (shared module import)
-scikit-learn   # KMeans length clustering; TSNE for word2vec_eval.ipynb
+sentencepiece  # required by tokenizer_utils.py even for the bpe path
 numpy
-tqdm
-
-# word2vec_eval.ipynb (embedding exploration: t-SNE, nearest neighbors,
-# intrinsic eval) -- installed into the ai-gpu venv, not in it originally:
-matplotlib
-arabic-reshaper  # Arabic text shaping for matplotlib labels
-python-bidi      # bidi reordering, same pair used in Tokenization/tokenization_eval.ipynb
-ipykernel        # run the notebook via the ai-gpu venv's kernel
-scipy            # evaluate_embeddings.py's spearmanr (already present in ai-gpu venv)
-adjustText       # t-SNE label-collision avoidance -- ~600 labeled points overlap badly without it
-
-# app.py (Gradio nearest-neighbor web app):
-gradio

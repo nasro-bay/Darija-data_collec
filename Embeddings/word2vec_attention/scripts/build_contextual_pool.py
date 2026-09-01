@@ -43,7 +43,7 @@ WORD2VEC_DIR = Path(__file__).resolve().parent.parent
 ROOT = WORD2VEC_DIR.parents[1]
 DATA_DIR = WORD2VEC_DIR / "data"
 MODELS_DIR = WORD2VEC_DIR / "models"
-CHECKPOINT = MODELS_DIR / "checkpoint_step640000.pt"
+CHECKPOINT = MODELS_DIR / "checkpoint_step675000.pt"
 OUT_PATH = DATA_DIR / "contextual_pool.npz"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
