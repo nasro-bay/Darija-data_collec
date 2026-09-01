@@ -90,6 +90,7 @@ DarijaDz_Tokenizers/*
 Benchmarks/*/data/*
 !Benchmarks/*/data/.gitkeep
 !Benchmarks/*/data/*_report.json
+Benchmarks/*/report.md
 
 # NArabizi-main/ was downloaded as a full clone of the paper's own repo,
 # which bundles its reproduction code (experiments/) alongside the data --
@@ -110,12 +111,28 @@ N-gram/models/*
 !N-gram/data/eval_*.json
 
 # CBOW+attention word embedding model: prepared training cache and
-# checkpoints -- large and reproducible via Embeddings/word2vec/scripts/*.py,
-# same treatment as N-gram/ above.
-Embeddings/word2vec/data/*
-Embeddings/word2vec/models/*
-!Embeddings/word2vec/data/.gitkeep
-!Embeddings/word2vec/models/.gitkeep
+# checkpoints -- large and reproducible via
+# Embeddings/word2vec_attention/scripts/*.py, same treatment as N-gram/
+# above. plan.md/guide.md weren't covered by the general **/PLAN.md-style
+# rules above after this folder was renamed from word2vec/ to
+# word2vec_attention/ -- added explicitly here (the Embeddings/word2vec/
+# plan.md/guide.md lines further up now correctly cover the *new*
+# word2vec/ folder instead, which holds the classic CBOW/Skip-gram
+# baselines -- see Embeddings/word2vec/plan.md).
+Embeddings/word2vec_attention/data/*
+Embeddings/word2vec_attention/models/*
+!Embeddings/word2vec_attention/data/.gitkeep
+!Embeddings/word2vec_attention/models/.gitkeep
+Embeddings/word2vec_attention/plan.md
+Embeddings/word2vec_attention/guide.md
+
+# Classic CBOW + Skip-gram baselines (no attention) -- share
+# word2vec_attention/data/'s prepared cache (read directly, not copied),
+# so only checkpoints need ignoring here, no data/ dir per subfolder.
+Embeddings/word2vec/cbow/models/*
+Embeddings/word2vec/skip-gram/models/*
+!Embeddings/word2vec/cbow/models/.gitkeep
+!Embeddings/word2vec/skip-gram/models/.gitkeep
 
 # Dialect/language-ID sampling + Qwen3.5-4B-labeled dataset -- large,
 # reproducible via Dialect_Identification/scripts/build_dataset.py +
@@ -126,6 +143,19 @@ Embeddings/word2vec/models/*
 Dialect_Identification/data/*
 !Dialect_Identification/data/.gitkeep
 !Dialect_Identification/data/review_flags.jsonl
+
+# Word-cluster classifier's model artifact (scripts/word_cluster/build_clusters.py)
+# -- reproducible from data/train.jsonl + the trained CBOWAttention checkpoint,
+# same treatment as the embedding model checkpoints above.
+Dialect_Identification/models/*
+!Dialect_Identification/models/.gitkeep
+
+# NArabizi sentiment-analysis work (separate from Benchmarks/NArabizi-main,
+# which is just data exploration): joined train/dev/test JSONL, reproducible
+# via NArabizi_sent/scripts/build_dataset.py, same treatment as above.
+NArabizi_sent/data/*
+!NArabizi_sent/data/.gitkeep
+NArabizi_sent/
 
 pytest.ini
 
