@@ -2,6 +2,9 @@
 
 `script` and `darija_confidence` are left as `null` placeholders — the
 language/dialect filter is deferred to a later phase (see PLAN.md).
+`dedup_hash` is also `null` for now — MinHash computation was removed
+from the pipeline (see pipeline.py's module docstring); a future
+standalone dedup.py pass can compute and backfill it from `text`.
 """
 from __future__ import annotations
 
@@ -14,7 +17,7 @@ def build_document(
     channel: str,
     scrape_date: str,
     source_type: str,
-    dedup_hash: str,
+    dedup_hash: str | None,
 ) -> dict:
     return {
         "id": doc_id,

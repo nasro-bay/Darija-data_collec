@@ -51,7 +51,7 @@ class PipelineTests(unittest.TestCase):
         # process-pool spawn overhead would dominate; single-worker keeps
         # tests fast without exercising a different code path (imap with
         # chunksize=1 over a single worker still runs through the same
-        # _clean_and_hash function real runs use).
+        # _clean function real runs use).
         return run_pipeline(
             raw_dir=self.raw_dir,
             processed_dir=self.processed_dir,
@@ -61,12 +61,12 @@ class PipelineTests(unittest.TestCase):
             workers=1,
         )
 
-    def test_dedup_is_disabled_but_hash_still_computed(self):
+    def test_dedup_is_disabled_and_hash_is_not_computed(self):
         # Dedup is intentionally disabled in the pipeline (see pipeline.py's
-        # module docstring) -- an exact-duplicate comment is now retained
-        # rather than dropped, but dedup_hash is still computed and stored
-        # per doc so a future standalone dedup pass (dedup.py, unchanged)
-        # can reuse it without recomputing.
+        # module docstring) -- an exact-duplicate comment is retained rather
+        # than dropped. MinHash computation is also skipped now (same
+        # docstring) -- dedup_hash is written as null; a future standalone
+        # dedup.py pass can compute it from `text` when needed.
         _write_raw_file(
             self.raw_dir / "v1.jsonl",
             [
@@ -90,11 +90,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(doc["video_id"], "v1")
         self.assertIsNone(doc["script"])
         self.assertIsNone(doc["darija_confidence"])
-        self.assertTrue(doc["dedup_hash"])
-        # The two exact-duplicate comments hash identically -- confirms the
-        # hash itself is still meaningful for a later dedup pass even though
-        # nothing acts on it here.
-        self.assertEqual(docs[0]["dedup_hash"], docs[1]["dedup_hash"])
+        self.assertIsNone(doc["dedup_hash"])
 
     def test_text_is_cleaned_before_writing(self):
         _write_raw_file(
@@ -130,8 +126,7 @@ class PipelineTests(unittest.TestCase):
         # Same comment, different amounts of excessive punctuation -> distinct
         # raw text, identical after normalize_punctuation collapses runs.
         # Both are retained (dedup is disabled -- see pipeline.py's module
-        # docstring), but their cleaned text and dedup_hash end up identical,
-        # confirming cleaning still runs consistently ahead of hashing.
+        # docstring), confirming cleaning still runs consistently.
         _write_raw_file(
             self.raw_dir / "v1.jsonl",
             [
@@ -147,7 +142,6 @@ class PipelineTests(unittest.TestCase):
         batch_path = self.processed_dir / f"batch_{date.today().isoformat()}.jsonl"
         docs = [json.loads(line) for line in batch_path.read_text(encoding="utf-8").splitlines()]
         self.assertEqual(docs[0]["text"], docs[1]["text"])
-        self.assertEqual(docs[0]["dedup_hash"], docs[1]["dedup_hash"])
 
     def test_log_json_tracks_dropped_empty_totals(self):
         _write_raw_file(

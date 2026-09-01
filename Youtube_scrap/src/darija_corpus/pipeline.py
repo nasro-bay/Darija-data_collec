@@ -8,15 +8,23 @@ the pipeline's dominant cost at this corpus's scale, and deduped-out rows
 may be wanted later for training (e.g. weighting/repetition signal)
 instead of being discarded. dedup.py is otherwise untouched and still
 fully usable as a standalone pass over data/processed/*.jsonl whenever
-dedup is wanted again -- see its module docstring. MinHash is still
-computed per retained comment (cheap, parallelized alongside cleaning)
-and stored as `dedup_hash` in the schema, so a future dedup pass can reuse
-it without recomputing.
+dedup is wanted again -- see its module docstring.
 
-Cleaning + MinHash computation are parallelized across a process pool
-(one process per CPU core by default) -- both are pure, per-comment,
-CPU-bound operations with no shared state, so every comment in a raw
-file's batch can be handled independently.
+MinHash computation is ALSO skipped here now (previously done eagerly per
+retained comment, even though the LSH pass itself was disabled) -- on
+Windows this pipeline spawns a worker process per CPU core, and each
+worker has to import dedup.py's `datasketch` -> `scipy` dependency chain;
+at this corpus's scale that was enough concurrent DLL loading to exhaust
+the paging file (`ImportError: DLL load failed ... The paging file is too
+small`). Since nothing downstream currently reads `dedup_hash`, there's no
+value being computed and immediately wasted. `dedup_hash` is now written
+as `null` in the schema; a future standalone dedup.py pass over
+data/processed/*.jsonl can compute MinHash straight from `text` at that
+point (dedup.py itself is unchanged and still fully usable).
+
+Cleaning is parallelized across a process pool (one process per CPU core
+by default) -- pure, per-comment, CPU-bound, no shared state, so every
+comment in a raw file's batch can be handled independently.
 """
 from __future__ import annotations
 
@@ -26,18 +34,15 @@ from datetime import date, datetime, timezone
 from multiprocessing import Pool
 from pathlib import Path
 
-from . import clean_text, dedup, schema
+from . import clean_text, schema
 from .state import State
 
 
-def _clean_and_hash(text: str) -> tuple[str | None, "dedup.MinHash | None"]:
+def _clean(text: str) -> str | None:
     """Worker-process entry point (must be a module-level function so it's
     picklable for multiprocessing, including Windows' spawn start method).
     """
-    cleaned = clean_text.clean(text)
-    if cleaned is None:
-        return None, None
-    return cleaned, dedup.text_to_minhash(cleaned)
+    return clean_text.clean(text)
 
 
 def _append_log(log_path: Path, run_entry: dict) -> None:
@@ -113,9 +118,9 @@ def run_pipeline(
             # results line up positionally with `comments` below.
             texts = [c["text"] for c in comments]
             chunksize = max(1, len(texts) // (num_workers * 4)) if texts else 1
-            results = pool.imap(_clean_and_hash, texts, chunksize=chunksize)
+            results = pool.imap(_clean, texts, chunksize=chunksize)
 
-            for comment, (cleaned, minhash) in zip(comments, results):
+            for comment, cleaned in zip(comments, results):
                 if cleaned is None:
                     comments_dropped_empty += 1
                     continue
@@ -127,7 +132,7 @@ def run_pipeline(
                     channel=comment["channel"],
                     scrape_date=comment["scrape_date"],
                     source_type=comment["source_type"],
-                    dedup_hash=dedup.minhash_digest(minhash),
+                    dedup_hash=None,
                 )
                 out.write(json.dumps(doc, ensure_ascii=False) + "\n")
                 comments_retained += 1
