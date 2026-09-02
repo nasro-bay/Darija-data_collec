@@ -13,11 +13,27 @@ One command now does what used to be two separate scripts
 removed) -- shuffling always happens as part of the build.
 
 README numbers are updated in place via targeted regex substitution keyed
-to each row/line's existing label text (e.g. "Documents", "Arabic
-script", "Channels:") -- only the numeric values change, nothing else
-about the files' wording or structure. If a README's wording around a
-stat changes later, the matching substitution here will silently stop
-firing (a warning is printed) rather than corrupt the file.
+to each row/line's existing label text (e.g. "Documents", "Channels:")
+-- only the numeric values change, nothing else about the files' wording
+or structure. If a README's wording around a stat changes later, the
+matching substitution here will silently stop firing (a warning is
+printed) rather than corrupt the file.
+
+**The "Script Distribution" table is NOT touched by this script anymore**
+(as of the dialect-distribution work -- see Dialect_Identification/
+scripts/best_model/). That table was replaced by a real **dialect**
+distribution (msa/darija/arabize/french/english/code_switch/other,
+document-level), estimated once by running the project's best dialect-ID
+model (char n-gram + SVM-RBF, per Dialect_Identification/notebooks/
+04_baldwin_lui_ngrams.ipynb) over a 5,000,000-row sample of the corpus --
+see Dialect_Identification/scripts/best_model/classify_corpus.py and
+update_readme_tables.py. Deliberately a **static, one-time snapshot**,
+not something this script keeps in sync automatically: rerunning the
+classifier over millions of rows on every corpus rebuild would be far
+more expensive than the cheap token-scan the old script-only table used,
+for a number that isn't expected to shift much run over run. To refresh
+it deliberately, rerun classify_corpus.py + update_readme_tables.py by
+hand.
 """
 from __future__ import annotations
 
@@ -25,7 +41,6 @@ import json
 import random
 import re
 import shutil
-from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -39,38 +54,20 @@ RELEASE_CORPUS_PATHS = [ROOT / "DarijaDZ" / "youtube_corpus.jsonl", ROOT / "Kagg
 SHUFFLE_SEED = 42
 SHUFFLE_CHUNK_SIZE = 100_000
 
-# Same script-classification rule used in Notebooks/04_youtube_corpus_stats.ipynb --
-# kept in sync with it so the README's script-distribution numbers match
-# what that notebook would report over the same corpus.
-ARABIC_RE = re.compile(r"[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻾]")
-LATIN_RE = re.compile(r"[a-zA-ZÀ-ɏ]")
-
-
-def classify_token(token: str) -> str:
-    has_arabic = bool(ARABIC_RE.search(token))
-    has_latin = bool(LATIN_RE.search(token))
-    if has_arabic and not has_latin:
-        return "arabic"
-    if has_latin and not has_arabic:
-        return "latin"
-    if has_arabic and has_latin:
-        return "mixed"
-    return "digits_symbols"
-
-
 def build_unified(batch_files: list[Path]) -> dict:
     """Streams every batch file once: writes the unified id+text JSONL and
-    accumulates the stats needed for the README updates (token/script
-    counts, distinct channels, distinct video files) along the way, since
-    the full per-document records (with `channel`/`video_id`) are only
+    accumulates the stats needed for the README updates (token counts,
+    distinct channels, distinct video files) along the way, since the
+    full per-document records (with `channel`/`video_id`) are only
     available here -- the unified file itself drops everything but
-    `id`/`text`.
+    `id`/`text`. (Script-distribution counting was removed -- see the
+    module docstring: that table is a static, separately-maintained
+    snapshot now, not rebuilt here.)
     """
     UNIFIED_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     total_docs = 0
     total_tokens = 0
-    script_token_counts: Counter[str] = Counter()
     channels: set[str] = set()
     video_ids: set[str] = set()
 
@@ -96,10 +93,7 @@ def build_unified(batch_files: list[Path]) -> dict:
                     out_f.write(json.dumps({"id": doc_id, "text": text}, ensure_ascii=False) + "\n")
                     total_docs += 1
 
-                    tokens = text.split()
-                    total_tokens += len(tokens)
-                    for tok in tokens:
-                        script_token_counts[classify_token(tok)] += 1
+                    total_tokens += len(text.split())
 
                     channel = record.get("channel")
                     if channel:
@@ -114,7 +108,6 @@ def build_unified(batch_files: list[Path]) -> dict:
     return {
         "total_docs": total_docs,
         "total_tokens": total_tokens,
-        "script_token_counts": script_token_counts,
         "channels": len(channels),
         "video_files": len(video_ids),
     }
@@ -275,14 +268,6 @@ def update_readmes(stats: dict) -> None:
     total_docs = stats["total_docs"]
     total_tokens = stats["total_tokens"]
     mean_tokens = total_tokens / total_docs if total_docs else 0.0
-    counts = stats["script_token_counts"]
-    arabic = counts.get("arabic", 0)
-    latin = counts.get("latin", 0)
-    mixed = counts.get("mixed", 0)
-    digits = counts.get("digits_symbols", 0)
-
-    def pct(n: int) -> str:
-        return f"{(n / total_tokens * 100):.2f}%" if total_tokens else "0.00%"
 
     for readme_path in README_PATHS:
         if not readme_path.exists():
@@ -296,17 +281,9 @@ def update_readmes(stats: dict) -> None:
         text = _sub_bold_number(text, r"\|\s*Word-level tokens\s*\|", f"{total_tokens:,}")
         text = _sub_bold_number(text, r"\|\s*Mean tokens / document\s*\|", f"{mean_tokens:.2f}")
 
-        text = _sub_plain_number(text, "Arabic script", f"{arabic:,}")
-        text = _sub_bold_number(text, r"\|\s*Arabic script\s*\|\s*[\d,]+\s*\|", pct(arabic))
-
-        text = _sub_plain_number(text, "Latin / Arabizi", f"{latin:,}")
-        text = _sub_bold_number(text, r"\|\s*Latin / Arabizi\s*\|\s*[\d,]+\s*\|", pct(latin))
-
-        text = _sub_plain_number(text, r"Digits, punctuation & symbols", f"{digits:,}")
-        text = _sub_bold_number(text, r"\|\s*Digits, punctuation & symbols\s*\|\s*[\d,]+\s*\|", pct(digits))
-
-        text = _sub_plain_number(text, r"Mixed Arabic \+ Latin", f"{mixed:,}")
-        text = _sub_bold_number(text, r"\|\s*Mixed Arabic \+ Latin\s*\|\s*[\d,]+\s*\|", pct(mixed))
+        # Script-distribution table (Arabic script / Latin / Digits / Mixed)
+        # deliberately NOT updated here anymore -- replaced by a static
+        # dialect-distribution table, see the module docstring.
 
         text = _sub_bold_number(text, r"\*\s*Channels:", f"{stats['channels']}")
         text = _sub_bold_number(text, r"\*\s*Raw video files processed:", f"{stats['video_files']:,}")
